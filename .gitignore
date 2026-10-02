@@ -1,0 +1,36 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# Personal data: never commit (repo is public)
+budget-import.json
+*.xlsx
+private/
+
+# Secrets
+*.jks
+*.keystore
+keystore.properties
+local.properties
+.env
+.env.*
+!.env.example
+
+# Node / web
+node_modules/
+web/dist/
+web/.vite/
+*.log
+
+# Android / Gradle
+.gradle/
+**/build/
+android/.kotlin/
+android/captures/
+android/app/release/
+*.apk
+*.aab
+!android/gradle/wrapper/gradle-wrapper.jar

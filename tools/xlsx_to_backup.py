@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Convert the original '2026 Budget.xlsx' Google-Sheet export into the app's backup JSON
+(docs/SYNC.md). Import the result from Settings -> Data -> Import backup in either app.
+
+Usage: python3 tools/xlsx_to_backup.py "2026 Budget.xlsx" budget-import.json
+The output contains personal financial data: do NOT commit it (the repo is public).
+"""
+import datetime as dt
+import json
+import sys
+import uuid
+
+import openpyxl
+
+NS = uuid.UUID("6f1d3c3e-5b7a-4d7e-9a43-2f0c1b0e7a11")
+
+
+def uid(*parts):
+    return str(uuid.uuid5(NS, "/".join(str(p) for p in parts)))
+
+
+CATS = [  # name, kind, tracking, multiplier, sort, sheet row
+    ("Paychecks", "income", "ledger", 1, 0, 3),
+    ("Rent", "expense", "manual", 1, 10, 5),
+    ("Subscriptions", "expense", "ledger", 1, 11, 6),
+    ("Food", "expense", "ledger", 1, 12, 7),
+    ("Fun", "expense", "ledger", 1, 13, 8),
+    ("Gas", "expense", "ledger", 1, 14, 9),
+    ("Misc", "expense", "ledger", 1, 15, 10),
+    ("Car Ins", "expense", "manual", 1, 16, 11),
+    ("Utilities", "expense", "manual", 1, 17, 12),
+    ("Phone Bill", "expense", "manual", 1, 18, 13),
+    ("Roth", "savings", "manual", 1, 20, 15),
+    ("401k", "savings", "manual", 2, 21, 16),
+    ("Taxable Brokerage", "savings", "manual", 1, 22, 17),
+    ("HSA", "savings", "manual", 1, 23, 18),
+]
+CAT_ID = {c[0]: uid("cat", c[0]) for c in CATS}
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+          "September", "October", "November", "December"]
+# ledger tables: category -> (date col, item col, amount col, first row, last row)
+LEDGERS = {
+    "Paychecks": ("G", "H", "I", 4, 5),
+    "Subscriptions": ("G", "H", "I", 9, 13),
+    "Misc": ("G", "H", "I", 17, 29),
+    "Food": ("K", "L", "M", 4, 22),
+    "Fun": ("O", "P", "Q", 4, 29),
+    "Gas": ("K", "L", "M", 26, 29),
+}
+
+
+def num(v):
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)):
+        return round(float(v), 6)
+    return None
+
+
+def clean(s):
+    return " ".join(str(s).split()) if s is not None else ""
+
+
+def main(src, dst):
+    wb = openpyxl.load_workbook(src, data_only=True)  # cached values
+    wf = openpyxl.load_workbook(src)  # formulas (to know which actuals were typed)
+    out = {"app": "budget", "version": 1,
+           "exported_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+           "settings": {"net_income": 68000, "gross_income": 85000, "currency": "USD", "days_per_month": 30.5},
+           "categories": [], "months": [], "budgets": [], "transactions": [], "recurring_items": [],
+           "accounts": [], "ledger_entries": [], "meal_plans": [], "meal_items": []}
+    for name, kind, tracking, mult, sort, _ in CATS:
+        out["categories"].append({"id": CAT_ID[name], "name": name, "kind": kind, "tracking": tracking,
+                                  "match_multiplier": mult, "sort_order": sort, "icon": None,
+                                  "color": None, "archived": False})
+    year = int(wb["Summary"]["B2"].value or 2026)
+
+    for ws_name in wb.sheetnames:
+        if ws_name not in MONTHS:
+            continue
+        m = MONTHS.index(ws_name) + 1
+        ws, wsf = wb[ws_name], wf[ws_name]
+        out["months"].append({"year": year, "month": m, "closed": bool(ws["C23"].value), "note": None})
+        for name, kind, tracking, mult, sort, row in CATS:
+            expected = num(ws[f"C{row}"].value)
+            raw = wsf[f"D{row}"].value
+            typed = raw is not None and not (isinstance(raw, str) and raw.startswith("="))
+            actual = num(raw) if typed else None
+            if expected is None and actual is None:
+                continue
+            out["budgets"].append({"year": year, "month": m, "category_id": CAT_ID[name],
+                                   "expected": expected, "actual": actual})
+        for cat, (dc, ic, ac, r0, r1) in LEDGERS.items():
+            for r in range(r0, r1 + 1):
+                amount = num(ws[f"{ac}{r}"].value)
+                item = clean(ws[f"{ic}{r}"].value)
+                if amount is None and not item:
+                    continue
+                d = ws[f"{dc}{r}"].value
+                date = d.date().isoformat() if isinstance(d, dt.datetime) else None
+                out["transactions"].append({"id": uid("txn", year, m, cat, r), "year": year, "month": m,
+                                            "category_id": CAT_ID[cat], "date": date, "item": item,
+                                            "amount": amount or 0, "note": None})
+
+    # Recurring subscriptions = the template rows pre-filled in the latest month
+    last = max(out["months"], key=lambda x: x["month"])["month"]
+    subs = [t for t in out["transactions"] if t["month"] == last and t["category_id"] == CAT_ID["Subscriptions"]]
+    for i, t in enumerate(subs):
+        out["recurring_items"].append({"id": uid("rec", t["item"]), "category_id": CAT_ID["Subscriptions"],
+                                       "item": t["item"], "amount": t["amount"], "day_of_month": 1,
+                                       "active": True, "sort_order": i})
+
+    s = wb["Summary"]
+    groups = {"Regions": ("cash", True), "SoFi": ("cash", True), "Cash": ("cash", True),
+              "Venmo": ("cash", True), "Credit": ("debt", True), "SoFi HYSA": ("cash", True),
+              "Brokerage": ("investment", False), "Roth IRA": ("investment", False),
+              "401k": ("investment", False), "HSA": ("investment", False), "Car": ("asset", False)}
+    for i, r in enumerate(range(3, 14)):
+        name = s[f"G{r}"].value
+        if not name:
+            continue
+        grp, liquid = groups.get(name, ("cash", False))
+        acct = {"id": uid("acct", name), "name": name, "account_group": grp, "liquid": liquid,
+                "balance": num(s[f"H{r}"].value) or 0, "linked_category_id": None, "base_amount": 0,
+                "sort_order": i, "archived": False}
+        if name == "401k":
+            acct.update(balance=0, linked_category_id=CAT_ID["401k"], base_amount=0)
+        if name == "HSA":
+            acct.update(balance=0, linked_category_id=CAT_ID["HSA"], base_amount=500)
+        out["accounts"].append(acct)
+    for i, r in enumerate(range(3, 14)):
+        name = s[f"J{r}"].value
+        if name and num(s[f"K{r}"].value) is not None:
+            out["ledger_entries"].append({"id": uid("ledger", name), "name": clean(name),
+                                          "amount": num(s[f"K{r}"].value), "note": None,
+                                          "settled": False, "sort_order": i})
+
+    food = wb["Food"]
+    # Four day plans: (time col, first data col, header label cell)
+    plans = [("B", "C", "C3", "Deficit A"), ("J", "K", "K3", "Maintenance"),
+             ("R", "S", "S3", "Deficit B"), ("Z", "AA", "AA3", "Deficit C")]
+    from openpyxl.utils import column_index_from_string as ci, get_column_letter as cl
+    for p, (tcol, ncol, hdr, pname) in enumerate(plans):
+        pid = uid("plan", pname)
+        out["meal_plans"].append({"id": pid, "name": pname, "kind": "day", "label": food[hdr].value,
+                                  "note": None, "sort_order": p})
+        n0 = ci(ncol)
+        time_label, k = None, 0
+        for r in range(5, 27):
+            t = food[f"{tcol}{r}"].value
+            if isinstance(t, dt.time):
+                h = t.hour
+                # Sheet stores 3:00 / 6:30 meaning afternoon/evening
+                if r >= 13:
+                    h += 12
+                time_label = dt.time(h, t.minute).strftime("%-I:%M %p")
+            name = food[f"{cl(n0)}{r}"].value
+            vals = [num(food[f"{cl(n0 + j)}{r}"].value) for j in range(1, 6)]
+            if not name or not isinstance(name, str) or name == "OR":
+                continue
+            cal, pro, fib, cost, fat = vals
+            out["meal_items"].append({"id": uid("item", pname, r), "plan_id": pid, "time_label": time_label,
+                                      "name": clean(name), "calories": cal, "protein": pro, "fiber": fib,
+                                      "fat": fat, "cost": cost, "sort_order": k})
+            k += 1
+
+    def recipe(name, rows, cols, note=None, sort=10):
+        pid = uid("recipe", name)
+        out["meal_plans"].append({"id": pid, "name": name, "kind": "recipe", "label": None,
+                                  "note": note, "sort_order": sort})
+        for k, r in enumerate(rows):
+            nm = food[f"{cols['name']}{r}"].value
+            if not nm:
+                continue
+            g = lambda key: num(food[f"{cols[key]}{r}"].value) if key in cols else None
+            out["meal_items"].append({"id": uid("ritem", name, r), "plan_id": pid, "time_label": None,
+                                      "name": clean(nm), "calories": g("cal"), "protein": g("pro"),
+                                      "fiber": g("fib"), "fat": g("fat"), "cost": g("cost"), "sort_order": k})
+
+    recipe("Overnight oats", range(31, 36), dict(name="C", cal="D", pro="E", fib="F", cost="G", fat="H"), sort=10)
+    recipe("Overnight oats (PB Fit)", range(31, 36), dict(name="K", cal="L", pro="M", fib="N", cost="O", fat="P"), sort=11)
+    steps = "\n".join(f"{int(food[f'B{r}'].value)}. {clean(food[f'C{r}'].value)}" for r in range(54, 61))
+    recipe("Chicken fried rice", range(42, 50), dict(name="C", cal="D", pro="E", fib="F", fat="G"), note=steps, sort=12)
+    recipe("Chicken pasta", range(42, 46), dict(name="K", cal="L", pro="M", fib="N", fat="O", cost="P"), sort=13)
+    recipe("Taco pot bowl", range(64, 68), dict(name="C", cal="D", pro="E", fib="F", fat="G"), sort=14)
+
+    with open(dst, "w") as f:
+        json.dump(out, f, indent=1)
+    print(f"wrote {dst}: " + ", ".join(f"{k}={len(v)}" for k, v in out.items() if isinstance(v, list)))
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:3])

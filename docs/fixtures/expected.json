@@ -1,0 +1,272 @@
+{
+ "months": {
+  "2025-11": {
+   "closed": true,
+   "categories": {
+    "Paychecks": {
+     "expected": 4000,
+     "actual": 4100
+    },
+    "Rent": {
+     "expected": 1200,
+     "actual": 1200
+    },
+    "Food": {
+     "expected": 400,
+     "actual": 330.5
+    },
+    "Fun": {
+     "expected": 300,
+     "actual": 150
+    },
+    "Utilities": {
+     "expected": 90,
+     "actual": null
+    },
+    "Roth": {
+     "expected": 500,
+     "actual": 500
+    },
+    "401k": {
+     "expected": 300,
+     "actual": 300
+    },
+    "HSA": {
+     "expected": 100,
+     "actual": 100
+    }
+   },
+   "expected": {
+    "income": 4000,
+    "expenses": 1990,
+    "saved": 1200,
+    "contributions": 900,
+    "leftover": 1110
+   },
+   "actual": {
+    "income": 4100,
+    "expenses": 1680.5,
+    "saved": 1200,
+    "contributions": 900,
+    "leftover": 1519.5
+   }
+  },
+  "2025-12": {
+   "closed": true,
+   "categories": {
+    "Paychecks": {
+     "expected": 4000,
+     "actual": 4000
+    },
+    "Rent": {
+     "expected": 1200,
+     "actual": 1210
+    },
+    "Food": {
+     "expected": 400,
+     "actual": 433.25
+    },
+    "Fun": {
+     "expected": 300,
+     "actual": 0
+    },
+    "Utilities": {
+     "expected": 90,
+     "actual": 104.5
+    },
+    "Roth": {
+     "expected": 500,
+     "actual": null
+    },
+    "401k": {
+     "expected": 300,
+     "actual": 300
+    },
+    "HSA": {
+     "expected": 100,
+     "actual": 100
+    }
+   },
+   "expected": {
+    "income": 4000,
+    "expenses": 1990,
+    "saved": 1200,
+    "contributions": 900,
+    "leftover": 1110
+   },
+   "actual": {
+    "income": 4000,
+    "expenses": 1747.75,
+    "saved": 700,
+    "contributions": 400,
+    "leftover": 1852.25
+   }
+  },
+  "2026-01": {
+   "closed": false,
+   "categories": {
+    "Paychecks": {
+     "expected": 4200,
+     "actual": 2100
+    },
+    "Rent": {
+     "expected": 1250,
+     "actual": 1250
+    },
+    "Food": {
+     "expected": 450,
+     "actual": 120
+    },
+    "Fun": {
+     "expected": 350,
+     "actual": 0
+    },
+    "Utilities": {
+     "expected": 95,
+     "actual": null
+    },
+    "Roth": {
+     "expected": 500,
+     "actual": null
+    },
+    "401k": {
+     "expected": 350,
+     "actual": null
+    },
+    "HSA": {
+     "expected": 0,
+     "actual": null
+    }
+   },
+   "expected": {
+    "income": 4200,
+    "expenses": 2145,
+    "saved": 1200,
+    "contributions": 850,
+    "leftover": 1205
+   },
+   "actual": {
+    "income": 2100,
+    "expenses": 1370,
+    "saved": 0,
+    "contributions": 0,
+    "leftover": 730
+   }
+  }
+ },
+ "years": {
+  "2025": {
+   "expected": {
+    "income": 8000,
+    "expenses": 3980,
+    "saved": 2400,
+    "contributions": 1800,
+    "leftover": 2220,
+    "annualized_savings": 27720.0,
+    "pct_net": 0.462,
+    "pct_gross": 0.3465,
+    "categories": {
+     "Paychecks": 8000,
+     "Rent": 2400,
+     "Food": 800,
+     "Fun": 600,
+     "Utilities": 180,
+     "Roth": 1000,
+     "401k": 600,
+     "HSA": 200
+    }
+   },
+   "actual": {
+    "income": 8100,
+    "expenses": 3818.25,
+    "saved": 2400,
+    "contributions": 1800,
+    "leftover": 2481.75,
+    "annualized_savings": 29290.5,
+    "pct_net": 0.488175,
+    "pct_gross": 0.366131,
+    "categories": {
+     "Paychecks": 8100,
+     "Rent": 2410,
+     "Food": 763.75,
+     "Fun": 450,
+     "Utilities": 194.5,
+     "Roth": 1000,
+     "401k": 600,
+     "HSA": 200
+    }
+   }
+  },
+  "2026": {
+   "expected": {
+    "income": 4200,
+    "expenses": 2145,
+    "saved": 1200,
+    "contributions": 850,
+    "leftover": 1205,
+    "annualized_savings": 28860.0,
+    "pct_net": 0.481,
+    "pct_gross": 0.36075,
+    "categories": {
+     "Paychecks": 4200,
+     "Rent": 1250,
+     "Food": 450,
+     "Fun": 350,
+     "Utilities": 95,
+     "Roth": 500,
+     "401k": 350,
+     "HSA": 0
+    }
+   },
+   "actual": {
+    "income": 4200,
+    "expenses": 2145,
+    "saved": 1200,
+    "contributions": 850,
+    "leftover": 1205,
+    "annualized_savings": 28860.0,
+    "pct_net": 0.481,
+    "pct_gross": 0.36075,
+    "categories": {
+     "Paychecks": 4200,
+     "Rent": 1250,
+     "Food": 450,
+     "Fun": 350,
+     "Utilities": 95,
+     "Roth": 500,
+     "401k": 350,
+     "HSA": 0
+    }
+   }
+  }
+ },
+ "net_worth": {
+  "accounts": {
+   "Checking": 2500,
+   "Credit card": -640.25,
+   "Brokerage": 10000,
+   "401k": 2200,
+   "HSA": 450
+  },
+  "net_reconciliations": 74.5,
+  "net_worth": 14584.25,
+  "super_liquid": 1859.75
+ },
+ "meal_plans": {
+  "Day": {
+   "calories": 776,
+   "protein": 86,
+   "fiber": 9,
+   "fat": 13,
+   "cost": 4.62,
+   "monthly_cost": 140.91
+  },
+  "Recipe": {
+   "calories": 340,
+   "protein": 48,
+   "fiber": 0,
+   "fat": 16,
+   "cost": 0
+  }
+ }
+}

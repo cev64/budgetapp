@@ -1,0 +1,5 @@
+{
+  "$comment": "Public client config. The publishable key is safe to ship in apps; row-level security protects the data. Never put a secret / service_role key here.",
+  "url": "",
+  "publishableKey": ""
+}

@@ -1,0 +1,587 @@
+{
+ "app": "budget",
+ "version": 1,
+ "exported_at": "2026-01-01T00:00:00Z",
+ "settings": {
+  "net_income": 60000,
+  "gross_income": 80000,
+  "currency": "USD",
+  "days_per_month": 30.5
+ },
+ "categories": [
+  {
+   "id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "name": "Paychecks",
+   "kind": "income",
+   "tracking": "ledger",
+   "match_multiplier": 1,
+   "sort_order": 0,
+   "icon": null,
+   "color": null,
+   "archived": false
+  },
+  {
+   "id": "514dc661-3b47-57cb-95b3-50d1690fda03",
+   "name": "Rent",
+   "kind": "expense",
+   "tracking": "manual",
+   "match_multiplier": 1,
+   "sort_order": 10,
+   "icon": null,
+   "color": null,
+   "archived": false
+  },
+  {
+   "id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "name": "Food",
+   "kind": "expense",
+   "tracking": "ledger",
+   "match_multiplier": 1,
+   "sort_order": 12,
+   "icon": null,
+   "color": null,
+   "archived": false
+  },
+  {
+   "id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "name": "Fun",
+   "kind": "expense",
+   "tracking": "ledger",
+   "match_multiplier": 1,
+   "sort_order": 13,
+   "icon": null,
+   "color": null,
+   "archived": false
+  },
+  {
+   "id": "07a82493-e19a-56ee-9d32-36046bf1f8a7",
+   "name": "Utilities",
+   "kind": "expense",
+   "tracking": "manual",
+   "match_multiplier": 1,
+   "sort_order": 17,
+   "icon": null,
+   "color": null,
+   "archived": false
+  },
+  {
+   "id": "7080e2e5-d764-5ece-805e-8cc962d297b4",
+   "name": "Roth",
+   "kind": "savings",
+   "tracking": "manual",
+   "match_multiplier": 1,
+   "sort_order": 20,
+   "icon": null,
+   "color": null,
+   "archived": false
+  },
+  {
+   "id": "57bf3f48-13cd-5b13-a53d-9160e52949cb",
+   "name": "401k",
+   "kind": "savings",
+   "tracking": "manual",
+   "match_multiplier": 2,
+   "sort_order": 21,
+   "icon": null,
+   "color": null,
+   "archived": false
+  },
+  {
+   "id": "0347c3b0-d704-57d5-9f09-23f9d6a7a7c5",
+   "name": "HSA",
+   "kind": "savings",
+   "tracking": "manual",
+   "match_multiplier": 1,
+   "sort_order": 23,
+   "icon": null,
+   "color": null,
+   "archived": false
+  }
+ ],
+ "months": [
+  {
+   "year": 2025,
+   "month": 11,
+   "closed": true,
+   "note": null
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "closed": true,
+   "note": null
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "closed": false,
+   "note": null
+  }
+ ],
+ "budgets": [
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "expected": 4000,
+   "actual": 4100
+  },
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "514dc661-3b47-57cb-95b3-50d1690fda03",
+   "expected": 1200,
+   "actual": 1200
+  },
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "expected": 400,
+   "actual": null
+  },
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "expected": 300,
+   "actual": null
+  },
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "07a82493-e19a-56ee-9d32-36046bf1f8a7",
+   "expected": 90,
+   "actual": null
+  },
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "7080e2e5-d764-5ece-805e-8cc962d297b4",
+   "expected": 500,
+   "actual": 500
+  },
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "57bf3f48-13cd-5b13-a53d-9160e52949cb",
+   "expected": 300,
+   "actual": 300
+  },
+  {
+   "year": 2025,
+   "month": 11,
+   "category_id": "0347c3b0-d704-57d5-9f09-23f9d6a7a7c5",
+   "expected": 100,
+   "actual": 100
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "expected": 4000,
+   "actual": null
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "514dc661-3b47-57cb-95b3-50d1690fda03",
+   "expected": 1200,
+   "actual": 1210
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "expected": 400,
+   "actual": null
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "expected": 300,
+   "actual": null
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "07a82493-e19a-56ee-9d32-36046bf1f8a7",
+   "expected": 90,
+   "actual": 104.5
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "7080e2e5-d764-5ece-805e-8cc962d297b4",
+   "expected": 500,
+   "actual": null
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "57bf3f48-13cd-5b13-a53d-9160e52949cb",
+   "expected": 300,
+   "actual": 300
+  },
+  {
+   "year": 2025,
+   "month": 12,
+   "category_id": "0347c3b0-d704-57d5-9f09-23f9d6a7a7c5",
+   "expected": 100,
+   "actual": 100
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "expected": 4200,
+   "actual": null
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "514dc661-3b47-57cb-95b3-50d1690fda03",
+   "expected": 1250,
+   "actual": 1250
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "expected": 450,
+   "actual": null
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "expected": 350,
+   "actual": null
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "07a82493-e19a-56ee-9d32-36046bf1f8a7",
+   "expected": 95,
+   "actual": null
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "7080e2e5-d764-5ece-805e-8cc962d297b4",
+   "expected": 500,
+   "actual": null
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "57bf3f48-13cd-5b13-a53d-9160e52949cb",
+   "expected": 350,
+   "actual": null
+  },
+  {
+   "year": 2026,
+   "month": 1,
+   "category_id": "0347c3b0-d704-57d5-9f09-23f9d6a7a7c5",
+   "expected": null,
+   "actual": null
+  }
+ ],
+ "transactions": [
+  {
+   "id": "a2ae6812-03c2-590e-a0f9-1a39ecb97bc4",
+   "year": 2025,
+   "month": 11,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "date": null,
+   "item": "check",
+   "amount": 2000,
+   "note": null
+  },
+  {
+   "id": "bcb9a397-5ef9-5a2e-8188-ff27a475b60d",
+   "year": 2025,
+   "month": 11,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "date": null,
+   "item": "check",
+   "amount": 2050,
+   "note": null
+  },
+  {
+   "id": "024aa79b-016a-54fd-84fa-e67134259abb",
+   "year": 2025,
+   "month": 11,
+   "category_id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "date": null,
+   "item": "groceries",
+   "amount": 250.5,
+   "note": null
+  },
+  {
+   "id": "99d1b2c1-fcb7-53a2-8b3d-41d85c58229f",
+   "year": 2025,
+   "month": 11,
+   "category_id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "date": "2025-10-30",
+   "item": "dinner",
+   "amount": 80,
+   "note": null
+  },
+  {
+   "id": "084184e3-5655-53ac-8904-1049d3d2ead9",
+   "year": 2025,
+   "month": 11,
+   "category_id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "date": null,
+   "item": "concert",
+   "amount": 200,
+   "note": null
+  },
+  {
+   "id": "ecec3576-20d7-5731-b12a-a6eaf0b32727",
+   "year": 2025,
+   "month": 11,
+   "category_id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "date": null,
+   "item": "refund",
+   "amount": -50,
+   "note": null
+  },
+  {
+   "id": "d7671646-25d0-5871-9f43-13087c5d963b",
+   "year": 2025,
+   "month": 11,
+   "category_id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "date": null,
+   "item": "deleted thing",
+   "amount": 999,
+   "note": null,
+   "deleted": true
+  },
+  {
+   "id": "0ab5f0d6-547c-5f75-aea4-e7704364ca6c",
+   "year": 2025,
+   "month": 12,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "date": "2025-12-15",
+   "item": "check",
+   "amount": 2000,
+   "note": null
+  },
+  {
+   "id": "0ab5f0d6-547c-5f75-aea4-e7704364ca6c",
+   "year": 2025,
+   "month": 12,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "date": "2025-12-31",
+   "item": "check",
+   "amount": 2000,
+   "note": null
+  },
+  {
+   "id": "ab24c4cd-bf74-5abd-a31a-9a9ea1ec8378",
+   "year": 2025,
+   "month": 12,
+   "category_id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "date": null,
+   "item": "groceries",
+   "amount": 433.25,
+   "note": null
+  },
+  {
+   "id": "68d95853-9f20-5a2a-92c1-0948b78a4423",
+   "year": 2026,
+   "month": 1,
+   "category_id": "eebb74d4-0200-54bd-ab73-d2c776acc399",
+   "date": null,
+   "item": "check",
+   "amount": 2100,
+   "note": null
+  },
+  {
+   "id": "738ca841-c1b0-517c-8fda-bf7cd139c7e6",
+   "year": 2026,
+   "month": 1,
+   "category_id": "7ef10851-85f7-5eb3-aec5-eb1f679bbd8e",
+   "date": null,
+   "item": "groceries",
+   "amount": 120,
+   "note": null
+  }
+ ],
+ "recurring_items": [
+  {
+   "id": "6c4c1720-798b-556d-9953-4c421e5756d8",
+   "category_id": "8d9c89c9-b985-56ea-93dd-ac97d684c5ef",
+   "item": "Streaming",
+   "amount": 15.99,
+   "day_of_month": 31,
+   "active": true,
+   "sort_order": 0
+  }
+ ],
+ "accounts": [
+  {
+   "id": "167fc82d-3932-5e37-8500-a47624562490",
+   "name": "Checking",
+   "account_group": "cash",
+   "liquid": true,
+   "balance": 2500,
+   "linked_category_id": null,
+   "base_amount": 0,
+   "sort_order": 0,
+   "archived": false
+  },
+  {
+   "id": "34b9f26e-d2eb-5136-aea1-a0a40be0697b",
+   "name": "Credit card",
+   "account_group": "debt",
+   "liquid": true,
+   "balance": -640.25,
+   "linked_category_id": null,
+   "base_amount": 0,
+   "sort_order": 1,
+   "archived": false
+  },
+  {
+   "id": "84a6e689-3d1a-5fd7-80ad-44106e81cbe9",
+   "name": "Brokerage",
+   "account_group": "investment",
+   "liquid": false,
+   "balance": 10000,
+   "linked_category_id": null,
+   "base_amount": 0,
+   "sort_order": 2,
+   "archived": false
+  },
+  {
+   "id": "2ee982ce-fb86-5edd-a2d0-6903a86490ea",
+   "name": "401k",
+   "account_group": "investment",
+   "liquid": false,
+   "balance": 999,
+   "linked_category_id": "57bf3f48-13cd-5b13-a53d-9160e52949cb",
+   "base_amount": 1000,
+   "sort_order": 3,
+   "archived": false
+  },
+  {
+   "id": "c51b943b-61bb-519d-a141-7a5a41d11c2f",
+   "name": "HSA",
+   "account_group": "investment",
+   "liquid": false,
+   "balance": 0,
+   "linked_category_id": "0347c3b0-d704-57d5-9f09-23f9d6a7a7c5",
+   "base_amount": 250,
+   "sort_order": 4,
+   "archived": false
+  },
+  {
+   "id": "8107ad03-5a1e-599a-900c-30b545483842",
+   "name": "Old account",
+   "account_group": "cash",
+   "liquid": true,
+   "balance": 5000,
+   "linked_category_id": null,
+   "base_amount": 0,
+   "sort_order": 5,
+   "archived": true
+  }
+ ],
+ "ledger_entries": [
+  {
+   "id": "0b755eac-4ed7-5d61-ac8e-a24235b46047",
+   "name": "Friend owes",
+   "amount": 120,
+   "note": null,
+   "settled": false,
+   "sort_order": 0
+  },
+  {
+   "id": "efbb9b7b-9e24-531e-ba63-bfadb8e308cb",
+   "name": "I owe",
+   "amount": -45.5,
+   "note": null,
+   "settled": false,
+   "sort_order": 1
+  },
+  {
+   "id": "7c0e1df4-8645-595d-b1aa-7e23e87f3873",
+   "name": "Settled",
+   "amount": 300,
+   "note": null,
+   "settled": true,
+   "sort_order": 2
+  }
+ ],
+ "meal_plans": [
+  {
+   "id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
+   "name": "Day",
+   "kind": "day",
+   "label": "Deficit",
+   "note": null,
+   "sort_order": 0
+  },
+  {
+   "id": "7daa2e66-3398-5142-ac88-a498d50b2672",
+   "name": "Recipe",
+   "kind": "recipe",
+   "label": null,
+   "note": "1. cook",
+   "sort_order": 1
+  }
+ ],
+ "meal_items": [
+  {
+   "id": "9f0bba8a-4254-560d-bd80-c230073c56fc",
+   "plan_id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
+   "time_label": "6:00 AM",
+   "name": "Oats",
+   "calories": 375,
+   "protein": 34,
+   "fiber": 9,
+   "fat": 9,
+   "cost": 1.76,
+   "sort_order": 0
+  },
+  {
+   "id": "7747098f-8e7c-538a-9db9-f0e1dd0347cd",
+   "plan_id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
+   "time_label": "12:00 PM",
+   "name": "Chicken",
+   "calories": 231,
+   "protein": 48,
+   "fiber": 0,
+   "fat": 4,
+   "cost": 2.68,
+   "sort_order": 1
+  },
+  {
+   "id": "ddd982e1-39d8-5e0f-9ce3-a05546e731a4",
+   "plan_id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
+   "time_label": "12:00 PM",
+   "name": "Rice",
+   "calories": 170,
+   "protein": 4,
+   "fiber": null,
+   "fat": null,
+   "cost": 0.18,
+   "sort_order": 2
+  },
+  {
+   "id": "55c25f0d-5160-5b2f-aed3-0805fdbfee8d",
+   "plan_id": "7daa2e66-3398-5142-ac88-a498d50b2672",
+   "time_label": null,
+   "name": "Beef",
+   "calories": 340,
+   "protein": 48,
+   "fiber": null,
+   "fat": 16,
+   "cost": null,
+   "sort_order": 3
+  }
+ ]
+}
