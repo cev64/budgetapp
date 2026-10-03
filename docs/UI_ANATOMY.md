@@ -17,6 +17,7 @@ Web: `lucide-react`. Android: the same SVG paths converted to vector drawables /
 | Month | `calendar-days` |
 | Year | `chart-column` |
 | Net worth | `landmark` |
+| Sheet | `sheet` (fallback `table-2`) |
 | Settings | `settings` |
 | Add | `plus` |
 | Closed month | `lock` / open `lock-open` |
@@ -37,7 +38,7 @@ Web: `lucide-react`. Android: the same SVG paths converted to vector drawables /
 ## Layout breakpoints (window width, not device)
 | Name | Width | Navigation | Panes |
 |---|---|---|---|
-| Compact (Fold cover / phone / narrow browser) | < 600 | glass bottom bar (4 items), Add = FAB (Android) / round accent button centred above bar (web) | 1 |
+| Compact (Fold cover / phone / narrow browser) | < 600 | glass bottom bar (5 items), Add = FAB (Android) / round accent button centred above bar (web) | 1 |
 | Medium (Fold inner portrait-ish, tablet) | 600–1023 | navigation rail 80px wide, Add at top of rail | 2 where useful |
 | Expanded (Fold inner landscape / desktop) | ≥ 1024 | rail (Android) / 220px side nav with labels (web) | 2–3 |
 
@@ -139,3 +140,6 @@ Grouped list cards: Account, Income & targets, Categories, Recurring, Appearance
   | Month closed toast | {Month} is closed. Your totals are saved. |
   | Sign-in headline | A clear view of your money. |
   Only show "saved"/"closed" after the write succeeded (Android: after the local Room write; web: after the upsert resolves).
+
+## Sheet
+See `docs/SHEET_VIEW.md` (layout mapped cell-for-cell to the original spreadsheet, unfold prompt below 600dp).
