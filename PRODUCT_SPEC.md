@@ -21,7 +21,7 @@ All math follows `docs/DOMAIN_RULES.md`. Sync and auth follow `docs/SYNC.md`.
 
 ## Screens (both apps, same names, same order)
 
-Navigation destinations: **Home · Month · Year · Net worth**, plus **Settings**
+Navigation destinations: **Home · Month · Year · Net worth · Sheet**, plus **Settings**
 (gear in the top bar). Global **Add** action (FAB on Android, primary button in the top bar
 on web, plus keyboard shortcut `N`).
 
@@ -60,6 +60,12 @@ on web, plus keyboard shortcut `N`).
 - Accounts grouped (Cash, Investments, Assets, Debts); edit balance inline; linked accounts
   (401k, HSA) show "auto · base + contributions" and are not directly editable (edit base instead).
 - Ledger (IOUs): name, amount (+ owed to me / − I owe), settle toggle, add/edit/delete.
+
+### Sheet
+- The spreadsheet, rebuilt: Summary + month tabs laid out exactly like the original Google Sheet,
+  editable where the sheet had typed values. Needs ≥ 600dp: on the folded phone it shows an
+  "Unfold to see the spreadsheet" prompt and switches to the sheet in place when unfolded.
+  Full spec: `docs/SHEET_VIEW.md`.
 
 ### Settings
 - Account: email, sign out.

@@ -183,6 +183,8 @@ fun <T> SegmentedControl(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     fill: Boolean = false,
+    /** Reports the selected segment's x and width within this control, e.g. to scroll it into view. */
+    onSelectedPlaced: ((x: Dp, width: Dp) -> Unit)? = null,
 ) {
     val c = Budget.colors
     val density = LocalDensity.current
@@ -198,6 +200,9 @@ fun <T> SegmentedControl(
             kotlinx.coroutines.delay(32)
             ready = true
         }
+    }
+    if (onSelectedPlaced != null) {
+        LaunchedEffect(target) { target?.let { (tx, tw) -> onSelectedPlaced(tx + 3.dp, tw) } }
     }
     val shape = RoundedCornerShape(10.dp)
     Box(modifier.clip(shape).background(c.surface2).padding(3.dp)) {

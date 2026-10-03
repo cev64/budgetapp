@@ -555,3 +555,106 @@ button.acct-balance {
 .auth-done h2 { color: var(--ink); font: 600 20px/28px var(--body) }
 .auth-done p { color: var(--ink-2) }
 .auth-demo { display: grid; gap: 6px; padding-top: 14px; border-top: 1px solid var(--line); text-align: center }
+
+/* ---- sheet view (docs/SHEET_VIEW.md) ---- */
+.sheet-page { gap: 10px }
+/* The Sheet uses the full width: 16px gutters, no 1240px cap, no reserved scrollbar gutter. */
+.shell:not(.compact) .page.sheet-page { max-width: none; padding: 14px 16px 24px }
+html:has(.sheet-page) { scrollbar-gutter: auto }
+.shell:not(.compact) .main:has(.sheet-page) .topbar-inner { max-width: none; padding-left: 16px; padding-right: 16px }
+.sheet-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0 }
+.sheet-card { padding: 0; overflow: hidden }
+.sheet-scroll { overflow-x: auto; overscroll-behavior-x: contain }
+.sheet-grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; font: 400 14px/20px var(--body); font-feature-settings: var(--nums) }
+.sheet-grid .sc {
+  position: relative; height: 36px; padding: 6px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); white-space: nowrap; vertical-align: middle; outline: none; overflow: hidden; text-overflow: ellipsis;
+  transition: background-color .2s var(--ease);
+}
+.sheet-grid tr:first-child .sc:not(.void) { border-top: 1px solid var(--line) }
+.sheet-grid .sc.void { border-color: transparent; background: transparent; padding: 0 }
+.sheet-grid .sc:not(.void) + .sc:not(.void) { border-left: 0 }
+.sheet-grid .sc.void + .sc:not(.void), .sheet-grid tr > .sc:not(.void):first-child { border-left: 1px solid var(--line) }
+.sheet-grid .sc.right { text-align: right }
+.sheet-grid .sc.center { text-align: center }
+.sheet-grid .sc.header { background: var(--surface); font: 600 12px/16px var(--body); letter-spacing: .72px; text-transform: uppercase; color: var(--ink-3) }
+.sheet-grid .sc.header.strong { font: 600 15px/20px var(--body); letter-spacing: 0; text-transform: none; color: var(--ink) }
+.sheet-grid .sc.title { font: 600 15px/20px var(--body); color: var(--ink); overflow: visible; border-right-color: transparent }
+.sheet-grid .sc.title.lead { z-index: 2 }
+.sheet-grid .sc.title + .sc.title + .sc.title { border-right-color: var(--line) }
+.sheet-grid .sc.computed { background: var(--surface); color: var(--ink-2) }
+.sheet-grid .sc.computed.tone-good { color: var(--good) }
+.sheet-grid .sc.computed.tone-bad { color: var(--bad) }
+.sheet-grid .sc.computed.tone-neutral { color: var(--ink-3) }
+.sheet-grid .sc.strong { font-weight: 600 }
+.sheet-grid .sc.strong:not(.tone-good):not(.tone-bad):not(.tone-neutral) { color: var(--ink) }
+.sheet-grid .sc.total-top { border-top: 2px solid var(--line-2) }
+.sheet-grid .sc.editable { cursor: cell }
+@media (hover: hover) { .sheet-grid .sc.editable:not(.editing):hover { background: var(--surface) } }
+.sheet-grid .sc.ghost { color: var(--ink-3) }
+.sheet-grid .sc.sel { box-shadow: inset 0 0 0 2px var(--focus-ring); z-index: 2 }
+.sheet-grid .sc.pinned.sel { z-index: 4 }
+.sheet-grid .sc:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring) }
+.sheet-grid .sc.computed::after {
+  content: 'ƒ'; position: absolute; bottom: 2px; left: 4px; font: italic 600 10px/1 Georgia, serif; color: var(--ink-3);
+  opacity: 0; transition: opacity .2s var(--ease); pointer-events: none;
+}
+@media (hover: hover) { .sheet-grid .sc.computed:hover::after { opacity: 1 } }
+.sheet-grid .sc.computed.sel::after { opacity: 1 }
+.sheet-grid .sc.pinned { position: sticky; z-index: 3 }
+.sheet-grid .sc.pinned.void { background: var(--card) }
+.sheet-scroll.scrolled .sc.pin-edge { box-shadow: 6px 0 10px -6px rgba(var(--shadow-rgb), .25) }
+.sheet-scroll.scrolled .sc.pin-edge.sel { box-shadow: inset 0 0 0 2px var(--focus-ring), 6px 0 10px -6px rgba(var(--shadow-rgb), .25) }
+.sc-inner { display: flex; align-items: center; gap: 7px; min-width: 0 }
+.sc.right .sc-inner { justify-content: flex-end }
+.sc-text { overflow: hidden; text-overflow: ellipsis; min-width: 0 }
+.sc.title .sc-text { overflow: visible }
+/* Marker (override / auto): a corner flag like a spreadsheet note, explained by the cell tooltip. */
+.sheet-grid .sc.marked::before {
+  content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none;
+  border-top: 8px solid var(--accent); border-right: 8px solid transparent;
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
+.sheet-grid .sc.has-menu { padding-right: 18px }
+.sc-menu {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; width: 16px; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--ink-3);
+  padding: 0; cursor: pointer; opacity: 0; transition: opacity .2s var(--ease), background-color .2s var(--ease);
+}
+.sc.sel .sc-menu { opacity: 1 }
+@media (hover: hover) { .sc:hover .sc-menu { opacity: 1 } .sc-menu:hover { background: var(--surface-2); color: var(--ink) } }
+@media (hover: none) { .sc-menu { opacity: .7 } }
+.sc-editor {
+  position: absolute; inset: 0; z-index: 5; width: 100%; min-width: 100%; border: 0; margin: 0; padding: 6px 10px;
+  font: 400 14px/20px var(--body); font-feature-settings: var(--nums); color: var(--ink); background: var(--bg);
+  box-shadow: inset 0 0 0 2px var(--focus-ring), 0 6px 18px rgba(var(--shadow-rgb), .14); outline: none;
+}
+.sc-editor.money { text-align: right }
+.sc-editor[type="date"] { min-width: 150px; width: auto }
+.sc-editor.invalid { box-shadow: inset 0 0 0 2px var(--bad) }
+.sc-check {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--control-border);
+  color: var(--on-accent); vertical-align: middle; transition: background-color .2s var(--ease), border-color .2s var(--ease);
+}
+.sc-check.on { background: var(--accent); border-color: var(--accent) }
+.cell-menu { position: fixed; top: auto; right: auto }
+.sheet-missing { padding: 24px }
+
+.sheet-tabbar {
+  position: sticky; bottom: 12px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-bar);
+}
+.sheet-year { display: flex; align-items: center; flex: none; border-right: 1px solid var(--line); padding-right: 6px }
+.sheet-year-label { font-weight: 600; min-width: 44px; text-align: center }
+.sheet-tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none }
+.sheet-tabs::-webkit-scrollbar { display: none }
+.sheet-tabs .seg { background: transparent }
+.sheet-add { flex: none }
+
+.unfold-card { display: grid; justify-items: center; text-align: center; gap: 12px; padding: 28px 20px }
+.unfold-card p { max-width: 340px }
+.unfold-art rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2 }
+.unfold-art .unfold-hinge { stroke: var(--line-2); stroke-width: 2; stroke-dasharray: 3 3 }
+.unfold-left { transform-origin: 58px 42px; animation: unfoldL 1s var(--spring) .2s both }
+.unfold-right { transform-origin: 62px 42px; animation: unfoldR 1s var(--spring) .2s both }
+@keyframes unfoldL { from { transform: translateX(22px) scaleX(.15) } to { transform: none } }
+@keyframes unfoldR { from { transform: translateX(-22px) scaleX(.15) } to { transform: none } }

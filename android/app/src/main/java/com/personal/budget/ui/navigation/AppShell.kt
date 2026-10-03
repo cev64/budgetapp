@@ -62,6 +62,7 @@ object Routes {
     const val MONTH = "month"
     const val YEAR = "year"
     const val NET_WORTH = "networth"
+    const val SHEET = "sheet"
     const val SETTINGS = "settings"
 }
 
@@ -70,6 +71,7 @@ val NavItems = listOf(
     NavItem(Routes.MONTH, "Month", Lucide.CalendarDays),
     NavItem(Routes.YEAR, "Year", Lucide.ChartColumn),
     NavItem(Routes.NET_WORTH, "Net worth", Lucide.Landmark),
+    NavItem(Routes.SHEET, "Sheet", Lucide.Sheet),
 )
 
 fun NavHostController.navigateTop(route: String) {
@@ -134,6 +136,7 @@ fun AppShell(
                                 composable(Routes.MONTH) { MonthScreen(main) }
                                 composable(Routes.YEAR) { YearScreen(main, onOpenMonth = { m -> main.selectMonth(m); navController.navigateTop(Routes.MONTH) }) }
                                 composable(Routes.NET_WORTH) { NetWorthScreen() }
+                                composable(Routes.SHEET) { com.personal.budget.ui.screens.sheet.SheetScreen(main, onGoToYear = { navController.navigateTop(Routes.YEAR) }) }
                                 composable(Routes.SETTINGS) { SettingsScreen(main, onBack = { navController.popBackStack() }) }
                             }
                         }

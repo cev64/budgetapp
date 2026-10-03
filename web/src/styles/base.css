@@ -191,6 +191,14 @@ code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: va
   transition: opacity .3s var(--ease), transform .45s var(--spring);
 }
 .toast.on { opacity: 1; transform: translate(-50%, 0) scale(1) }
+.toast.has-action { display: flex; align-items: center; gap: 14px; padding: 6px 8px 6px 18px }
+.toast.has-action.on { pointer-events: auto }
+.toast-action {
+  background: none; border: 0; color: inherit; font: 600 14px/20px var(--body); padding: 8px 12px; min-height: 36px; border-radius: 999px;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px; transition: background-color .2s var(--ease), transform .18s var(--ease);
+}
+@media (hover: hover) { .toast-action:hover { background: rgba(var(--shadow-rgb), .08) } }
+.toast-action:active { transform: scale(.96) }
 
 /* ---- expand (§7.6) ---- */
 .expand { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .5s var(--spring) }
