@@ -34,3 +34,7 @@ android/app/release/
 *.apk
 *.aab
 !android/gradle/wrapper/gradle-wrapper.jar
+
+# Python
+__pycache__/
+*.pyc
