@@ -1,5 +1,9 @@
 # UI Anatomy — shared by web and Android
 
+> **Brand kit (v2):** `design/brand/` (logo, icons, splash, favicon, `brand-guide.md`) and the merged
+> `design/tokens.json` v2 are authoritative for colours, type sizes, radii and voice. Where this file's
+> older numbers disagree with tokens.json v2, tokens.json wins.
+
 The two apps must feel like the same product. This file pins down the details that make
 them match. Visual language: `docs/FLUID_GLASS_UI.md`. Tokens: `design/tokens.json`.
 
@@ -21,7 +25,7 @@ Web: `lucide-react`. Android: the same SVG paths converted to vector drawables /
 | Prev / next | `chevron-left` / `chevron-right` |
 | Ledger category | `list` · Manual category | `pencil` |
 
-## Type scale (Inter unless noted; tabular numerals everywhere)
+## Type scale: SUPERSEDED by tokens.json v2 `type` (display 40/600, title 24, body 16, table numbers 16/500, micro 12/600)
 | Role | Size / weight |
 |---|---|
 | Screen title (e.g. "OCTOBER 2026") | Barlow Condensed 28 / 700, uppercase, letter-spacing .02em |
@@ -105,3 +109,30 @@ Grouped list cards: Account, Income & targets, Categories, Recurring, Appearance
 - Lists: new rows fade+rise and tint accent; removed rows sink and tint red.
 - Sheets/dialogs: spring in, exit at 60% duration.
 - Reduced motion (web `prefers-reduced-motion`, Android "Remove animations") disables all of it.
+
+## Brand (v2)
+- **Logo:** the split-ledger B (`design/brand/logo-mark.svg`, two even-odd paths). Web sidebar/top bar uses
+  `logo-lockup.svg` / `logo-lockup-dark.svg` (136×36, min 109px wide); compact bars use the mark at 24–32px.
+  Clear space 0.25× mark height. Never recolour with category colours, never stretch.
+- **App icon:** white mark on #1059FC. Android adaptive: `ic_launcher_{background,foreground,monochrome}.xml`;
+  splash: `splash-icon.svg` (288 canvas) on the themed `bg`. Web: `favicon.svg`, `app-icon-1024.png` (purpose any),
+  `app-icon-maskable-512.png` (purpose maskable).
+- **Buttons on accent:** label colour is `onAccent` (white in light, NAVY #0A1122 in dark — white on #4A82FF fails contrast).
+- **Toast:** `toast` background with `onToast` text (light: navy glass + white text; dark: near-white + navy text).
+- **Category colours** come from `categoryPalette` via `categoryAssignment`; always pair the colour with its
+  **symbol** (circle, square, triangle, diamond, plus, cross, ring, square-ring, triangle-ring, diamond-ring) at
+  ≥12px in legends, category dots and chart series. Labels stay in `ink`, never in the category colour.
+- **Focus:** 2px `focusRing` with 2px offset. Control boundaries that matter (inputs) use `controlBorder`;
+  `line` is decorative only.
+- **Floating bars & sheets:** radius 24. Glass = 88% surface + 20px blur (web); Android uses an opaque/translucent
+  surface when blur isn't available.
+- **Hit targets:** ≥48dp Android, ≥44px web.
+- **Voice:** short, factual, calm. Use these exact strings:
+  | Situation | String |
+  |---|---|
+  | Empty month (no budgets) | Set your first category to start this month’s budget. |
+  | Transaction saved toast | Expense saved. Your budget is up to date. (for income/refunds: "Income saved. Your budget is up to date." / "Refund saved. Your budget is up to date.") |
+  | Over-budget warning | {Category} is {amount} over budget. Review your recent expenses. |
+  | Month closed toast | {Month} is closed. Your totals are saved. |
+  | Sign-in headline | A clear view of your money. |
+  Only show "saved"/"closed" after the write succeeded (Android: after the local Room write; web: after the upsert resolves).

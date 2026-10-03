@@ -178,8 +178,13 @@ cost). `kind = 'recipe'` plans are one dish broken into ingredients (totals, no 
 
 ## 8. Display rules (both apps)
 
-- Currency: `$1,234` when the value is a whole number, `$1,234.56` otherwise. Negative as
-  `−$153` (true minus sign). Use tabular numerals.
+- Currency (display only; stored values are never rounded):
+  - **|value| ≥ 1,000 → rounded to whole dollars** (half away from zero): `1234.56 → $1,235`, `−1500.4 → −$1,500`.
+  - |value| < 1,000 → `$12` when whole, `$12.34` otherwise (2 decimals): `69.6667 → $69.67`, `999.99 → $999.99`.
+  - Negative as `−$153` (true minus sign U+2212, never only colour). Zero is `$0` (no sign). Tabular numerals.
+  - Edit fields show the exact stored value, not the rounded display.
+  - Test vectors: 0→`$0`, 12→`$12`, 12.5→`$12.50`, 999.994→`$999.99`, 999.995→`$1,000`, 1000→`$1,000`,
+    1000.5→`$1,001`, 22560→`$22,560`, 2886.6667→`$2,887`, −640.25→`−$640.25`, −1022.5→`−$1,023`, −0.004→`$0`.
 - Percentages: one decimal (`43.7%`).
 - Difference colouring for **expense** categories: over budget (diff > 0) = `bad`, under = `good`.
   For **income and savings**: diff ≥ 0 = `good`, < 0 = `bad`. Leftover follows income.

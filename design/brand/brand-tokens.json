@@ -1,0 +1,140 @@
+{
+  "color": {
+    "light": {
+      "ink": "#08204F",
+      "ink-2": "#415373",
+      "ink-3": "#63718A",
+      "surface": "#FFFFFF",
+      "surface-2": "#F6F8FC",
+      "line": "#DCE3EE",
+      "accent": "#1059FC",
+      "accent-ink": "#FFFFFF",
+      "accent-soft": "#EDF3FF",
+      "good": "#15803D",
+      "bad": "#DC2626"
+    },
+    "dark": {
+      "ink": "#F5F8FF",
+      "ink-2": "#C2CEE2",
+      "ink-3": "#91A2BF",
+      "surface": "#0A1122",
+      "surface-2": "#131F35",
+      "line": "#2A3A55",
+      "accent": "#4A82FF",
+      "accent-ink": "#0A1122",
+      "accent-soft": "#172B52",
+      "good": "#4ADE80",
+      "bad": "#FF8585"
+    },
+    "categoryPalette": [
+      {
+        "id": "housing",
+        "hex": "#2978C9",
+        "symbol": "circle"
+      },
+      {
+        "id": "food",
+        "hex": "#C96523",
+        "symbol": "square"
+      },
+      {
+        "id": "transport",
+        "hex": "#178879",
+        "symbol": "triangle"
+      },
+      {
+        "id": "fun",
+        "hex": "#A65DA8",
+        "symbol": "diamond"
+      },
+      {
+        "id": "subscriptions",
+        "hex": "#A87914",
+        "symbol": "plus"
+      },
+      {
+        "id": "health",
+        "hex": "#C65172",
+        "symbol": "cross"
+      },
+      {
+        "id": "roth",
+        "hex": "#6B75C6",
+        "symbol": "ring"
+      },
+      {
+        "id": "401k",
+        "hex": "#648631",
+        "symbol": "square-ring"
+      },
+      {
+        "id": "brokerage",
+        "hex": "#B46B51",
+        "symbol": "triangle-ring"
+      },
+      {
+        "id": "hsa",
+        "hex": "#778190",
+        "symbol": "diamond-ring"
+      }
+    ],
+    "accentPressed": {
+      "light": "#0A45CC",
+      "dark": "#7BA3FF"
+    }
+  },
+  "type": {
+    "display": {
+      "family": "Barlow Condensed",
+      "weight": 600,
+      "size": 40,
+      "lineHeight": 44,
+      "letterSpacing": 0.8,
+      "case": "uppercase"
+    },
+    "title": {
+      "family": "Inter",
+      "weight": 600,
+      "size": 24,
+      "lineHeight": 30,
+      "letterSpacing": -0.48
+    },
+    "body": {
+      "family": "Inter",
+      "weight": 400,
+      "size": 16,
+      "lineHeight": 24,
+      "letterSpacing": 0
+    },
+    "numbers": {
+      "family": "Inter",
+      "weight": 600,
+      "size": 32,
+      "lineHeight": 40,
+      "letterSpacing": -0.32,
+      "fontFeatureSettings": "\"tnum\" 1, \"lnum\" 1"
+    },
+    "micro": {
+      "family": "Inter",
+      "weight": 600,
+      "size": 12,
+      "lineHeight": 16,
+      "letterSpacing": 0.72,
+      "case": "uppercase"
+    },
+    "wordmark": {
+      "family": "Inter",
+      "opticalSize": 32,
+      "weight": 600,
+      "size": 28,
+      "letterSpacing": -0.56
+    }
+  },
+  "radius": {
+    "card": 12,
+    "control": 8,
+    "sheet": 24,
+    "floatingBar": 24,
+    "pill": 999
+  }
+}
