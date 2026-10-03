@@ -3,7 +3,14 @@
 
 import { assert, assertAlmostEquals, assertEquals } from "jsr:@std/assert@1.0.19";
 import {
+  addDays,
   buildIndex,
+  changeOver,
+  formatShortDate,
+  formatSignedPct,
+  historyView,
+  type NetWorthSnapshot,
+  snapshotFromView,
   type Category,
   formatMoney,
   formatPct,
@@ -15,6 +22,7 @@ import {
   type Snapshot,
   todayParts,
   yearView,
+  accountBalanceIn,
 } from "./domain.ts";
 
 const root = new URL("../../../docs/fixtures/", import.meta.url);
@@ -177,11 +185,29 @@ Deno.test("name matching: exact, prefix, word prefix, contains, fuzzy, ambiguity
   assert(r2.ok && r2.item.name === "Food delivery");
 });
 
-Deno.test("display formatting", () => {
-  assertEquals(formatMoney(1234), "$1,234");
-  assertEquals(formatMoney(1234.5), "$1,234.50");
-  assertEquals(formatMoney(-153), "−$153");
-  assertEquals(formatMoney(0), "$0");
+Deno.test("display formatting: DOMAIN_RULES §8 currency test vectors", () => {
+  const vectors: [number, string][] = [
+    [0, "$0"],
+    [12, "$12"],
+    [12.5, "$12.50"],
+    [999.994, "$999.99"],
+    [999.995, "$1,000"],
+    [1000, "$1,000"],
+    [1000.5, "$1,001"],
+    [22560, "$22,560"],
+    [2886.6667, "$2,887"],
+    [-640.25, "\u2212$640.25"],
+    [-1022.5, "\u2212$1,023"],
+    [-0.004, "$0"],
+  ];
+  for (const [v, want] of vectors) assertEquals(formatMoney(v), want, `formatMoney(${v})`);
+  // Examples given in the rule text.
+  assertEquals(formatMoney(1234.56), "$1,235");
+  assertEquals(formatMoney(-1500.4), "\u2212$1,500");
+  assertEquals(formatMoney(69.6667), "$69.67");
+  assertEquals(formatMoney(999.99), "$999.99");
+  assertEquals(formatMoney(-153), "\u2212$153");
+  assertEquals(formatMoney(-0), "$0");
   assertEquals(formatMoney(null), "—");
   assertEquals(formatPct(0.43701), "43.7%");
 });
@@ -190,4 +216,84 @@ Deno.test("today is computed in America/New_York", () => {
   // 03:30 UTC on Oct 1 is still Sept 30 in New York.
   assertEquals(todayParts(new Date("2026-10-01T03:30:00Z")).iso, "2026-09-30");
   assertEquals(todayParts(new Date("2026-10-01T05:00:00Z")).iso, "2026-10-01");
+});
+
+// ---------------------------------------------------------------------------
+// §5b net worth history
+// ---------------------------------------------------------------------------
+
+const snapAt = (taken_on: string, net_worth: number, accounts: NetWorthSnapshot["accounts"] = []): NetWorthSnapshot => ({
+  taken_on,
+  net_worth,
+  super_liquid: net_worth / 2,
+  reconciliations: 0,
+  accounts,
+  source: "auto",
+});
+
+Deno.test("snapshotFromView reproduces the §5 numbers for the fixture", () => {
+  const s = snapshotFromView(netWorthView(snap), "2026-01-15", "manual");
+  assertEquals(s.net_worth, expected.net_worth.net_worth);
+  assertEquals(s.super_liquid, expected.net_worth.super_liquid);
+  assertEquals(s.reconciliations, expected.net_worth.net_reconciliations);
+  assertEquals(Object.fromEntries(s.accounts.map((a) => [a.name, a.balance])), expected.net_worth.accounts);
+  assertEquals(s.accounts[0], { id: "167fc82d-3932-5e37-8500-a47624562490", name: "Checking", group: "cash", liquid: true, balance: 2500 });
+});
+
+Deno.test("addDays crosses month, year and leap boundaries", () => {
+  assertEquals(addDays("2026-01-15", -91), "2025-10-16");
+  assertEquals(addDays("2026-03-01", -1), "2026-02-28");
+  assertEquals(addDays("2028-03-01", -1), "2028-02-29");
+  assertEquals(addDays("2025-12-31", 1), "2026-01-01");
+});
+
+Deno.test("changeOver: on-or-before base, oldest fallback (partial), All, zero base", () => {
+  const pts = [
+    { date: "2025-10-01", value: 20000 },
+    { date: "2025-10-14", value: 20900 },
+    { date: "2025-11-20", value: 21500 },
+    { date: "2026-01-10", value: 22800 },
+    { date: "2026-01-15", value: 22560 },
+  ];
+  const m3 = changeOver(pts, "3M")!; // target 2025-10-16 → base 2025-10-14
+  assertEquals([m3.base.date, m3.amount, m3.partial], ["2025-10-14", 1660, false]);
+  assertAlmostEquals(m3.pct!, 1660 / 20900, 1e-6);
+  const m1 = changeOver(pts, "1M")!; // target 2025-12-16 → base 2025-11-20
+  assertEquals([m1.base.date, m1.amount], ["2025-11-20", 1060]);
+  const y1 = changeOver([...pts].reverse(), "1Y")!; // nothing a year old → oldest, partial
+  assertEquals([y1.base.date, y1.amount, y1.partial], ["2025-10-01", 2560, true]);
+  const all = changeOver(pts, "All")!;
+  assertEquals([all.base.date, all.partial], ["2025-10-01", false]);
+  const exact = changeOver([{ date: "2025-12-16", value: 5 }, { date: "2026-01-15", value: 6 }], "1M")!;
+  assertEquals(exact.base.date, "2025-12-16", "a snapshot exactly one period old is used");
+  assertEquals(changeOver([{ date: "2026-01-01", value: 0 }, { date: "2026-01-15", value: 10 }], "All")!.pct, null);
+  assertEquals(changeOver([], "3M"), null);
+});
+
+Deno.test("historyView: series from the base, low/high, tombstones and per-account values", () => {
+  const acc = (bal: number) => [{ id: "chk", name: "Checking", group: "cash", liquid: true, balance: bal }];
+  const snaps = [
+    snapAt("2025-10-01", 20000, acc(100)),
+    snapAt("2025-10-14", 20900, acc(300)),
+    { ...snapAt("2025-10-20", 1, acc(1)), deleted: true },
+    snapAt("2025-11-20", 21500),
+    snapAt("2026-01-10", 22800, acc(250)),
+    snapAt("2026-01-15", 22560, acc(275)),
+  ];
+  const v = historyView(snaps, "3M");
+  assertEquals(v.series.map((p) => p.date), ["2025-10-14", "2025-11-20", "2026-01-10", "2026-01-15"]);
+  assertEquals(v.low, { date: "2025-10-14", value: 20900 });
+  assertEquals(v.high, { date: "2026-01-10", value: 22800 });
+  const a = historyView(snaps, "All", (s) => accountBalanceIn(s, "chk"));
+  assertEquals(a.series.map((p) => p.value), [100, 300, 250, 275]); // 2025-11-20 lacks the account
+  assertEquals(a.change!.amount, 175);
+  assertEquals(historyView([], "1M").change, null);
+});
+
+Deno.test("history display helpers", () => {
+  assertEquals(formatSignedPct(0.0579), "+5.8%");
+  assertEquals(formatSignedPct(-0.0123), "\u22121.2%");
+  assertEquals(formatSignedPct(0), "0.0%");
+  assertEquals(formatShortDate("2026-08-03", 2026), "Aug 3");
+  assertEquals(formatShortDate("2025-10-14", 2026), "Oct 14, 2025");
 });

@@ -3,6 +3,11 @@
 
 import {
   type Account,
+  netWorthView,
+  type NetWorthSnapshot,
+  snapshotFromView,
+  TIMEZONE,
+  todayParts,
   type Budget,
   type Category,
   DEFAULT_SETTINGS,
@@ -42,11 +47,15 @@ export class InMemoryStore implements BudgetStore {
   ledger: LedgerEntry[];
   mealPlans: MealPlan[];
   mealItems: MealItem[];
+  snapshots: NetWorthSnapshot[];
   /** Number of write calls, for tests. */
   writes = 0;
   private clock: number;
 
-  constructor(backup: Backup) {
+  private readonly now: () => Date;
+
+  constructor(backup: Backup, opts: { now?: () => Date } = {}) {
+    this.now = opts.now ?? (() => new Date());
     const b = clone(backup);
     this.settings = { ...DEFAULT_SETTINGS, ...(b.settings ?? {}) };
     this.categories = b.categories ?? [];
@@ -62,6 +71,7 @@ export class InMemoryStore implements BudgetStore {
     this.ledger = b.ledger_entries ?? [];
     this.mealPlans = b.meal_plans ?? [];
     this.mealItems = b.meal_items ?? [];
+    this.snapshots = b.net_worth_snapshots ?? [];
     this.clock = Math.max(Date.now(), base + this.transactions.length + 1);
   }
 
@@ -113,6 +123,30 @@ export class InMemoryStore implements BudgetStore {
   }
   listMealItems() {
     return Promise.resolve(this.live(this.mealItems));
+  }
+
+  listNetWorthSnapshots(f: { from?: string } = {}) {
+    return Promise.resolve(
+      this.live(this.snapshots)
+        .filter((s) => f.from === undefined || s.taken_on >= f.from)
+        .sort((a, b) => (a.taken_on < b.taken_on ? -1 : a.taken_on > b.taken_on ? 1 : 0)),
+    );
+  }
+
+  /** Same result as the SQL write_net_worth_snapshot(): §5 computed now, upserted as today's row. */
+  refreshNetWorthSnapshot() {
+    const view = netWorthView({
+      settings: this.settings,
+      categories: this.categories,
+      months: [],
+      budgets: this.budgets,
+      transactions: [],
+      accounts: this.accounts,
+      ledger_entries: this.ledger,
+    });
+    const snap = snapshotFromView(view, todayParts(this.now(), TIMEZONE).iso, "manual");
+    this.upsert(this.snapshots, [snap], (a, b) => a.taken_on === b.taken_on, (_old, row) => row);
+    return Promise.resolve(clone(snap));
   }
 
   private upsert<T>(table: T[], rows: T[], same: (a: T, b: T) => boolean, merge?: (old: T, row: T) => T): T[] {

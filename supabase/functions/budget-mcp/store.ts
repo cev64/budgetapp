@@ -12,6 +12,7 @@ import type {
   MealItem,
   MealPlan,
   Month,
+  NetWorthSnapshot,
   RecurringItem,
   Settings,
   Transaction,
@@ -41,12 +42,21 @@ export interface BudgetStore {
   listLedgerEntries(): Promise<LedgerEntry[]>;
   listMealPlans(): Promise<MealPlan[]>;
   listMealItems(): Promise<MealItem[]>;
+  /** Live net worth snapshots (§5b), ascending by taken_on, optionally from a date (inclusive). */
+  listNetWorthSnapshots(filter?: { from?: string }): Promise<NetWorthSnapshot[]>;
 
   upsertMonths(rows: Month[]): Promise<Month[]>;
   upsertBudgets(rows: Budget[]): Promise<Budget[]>;
   upsertTransactions(rows: Transaction[]): Promise<Transaction[]>;
   upsertAccounts(rows: Account[]): Promise<Account[]>;
   upsertLedgerEntries(rows: LedgerEntry[]): Promise<LedgerEntry[]>;
+
+  /**
+   * Recompute and upsert TODAY's (America/New_York) net worth snapshot, source 'manual'.
+   * Supabase: RPC public.write_net_worth_snapshot(user, 'manual'), so the math stays in SQL.
+   * Callers treat failures as non-fatal (see refreshSnapshotSafely in tools.ts).
+   */
+  refreshNetWorthSnapshot(): Promise<NetWorthSnapshot | null>;
 }
 
 // ---------------------------------------------------------------------------

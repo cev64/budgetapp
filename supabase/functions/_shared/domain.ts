@@ -499,6 +499,126 @@ export function netWorthView(s: Snapshot): NetWorthView {
 }
 
 // ---------------------------------------------------------------------------
+// §5b Net worth history
+// ---------------------------------------------------------------------------
+
+export interface SnapshotAccount {
+  id: string;
+  name: string;
+  group: string;
+  liquid: boolean;
+  balance: number;
+}
+
+/** One row of net_worth_snapshots (one per user per America/New_York day). */
+export interface NetWorthSnapshot {
+  taken_on: string; // YYYY-MM-DD
+  net_worth: number;
+  super_liquid: number;
+  reconciliations: number;
+  accounts: SnapshotAccount[];
+  source: "auto" | "manual" | "import";
+  deleted?: boolean;
+}
+
+export type HistoryRange = "1M" | "3M" | "6M" | "1Y" | "All";
+
+export const HISTORY_PERIOD_DAYS: Record<Exclude<HistoryRange, "All">, number> = { "1M": 30, "3M": 91, "6M": 182, "1Y": 365 };
+
+/** Same shape the SQL function public.compute_net_worth() writes. Used by the in-memory store only. */
+export function snapshotFromView(v: NetWorthView, takenOn: string, source: NetWorthSnapshot["source"]): NetWorthSnapshot {
+  return {
+    taken_on: takenOn,
+    net_worth: v.net_worth,
+    super_liquid: v.super_liquid,
+    reconciliations: v.net_reconciliations,
+    accounts: v.accounts.map((a) => ({ id: a.id, name: a.name, group: a.account_group, liquid: a.liquid, balance: a.balance })),
+    source,
+    deleted: false,
+  };
+}
+
+export function addDays(iso: string, days: number): string {
+  const p = parseIsoDate(iso);
+  if (!p) throw new Error(`bad date ${iso}`);
+  const d = new Date(Date.UTC(p.year, p.month - 1, p.day + days));
+  return isoDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+
+export interface HistoryPoint {
+  date: string;
+  value: number;
+}
+
+export interface HistoryChange {
+  /** latest − base */
+  amount: number;
+  /** amount / |base|, null when base is 0 */
+  pct: number | null;
+  latest: HistoryPoint;
+  base: HistoryPoint;
+  /** true when no snapshot is old enough for the full period, so base is the oldest snapshot ("since <date>") */
+  partial: boolean;
+}
+
+/**
+ * §5b changeOver(period) over an ascending-or-not list of points:
+ * latest − (point on or before latest − period), falling back to the oldest point.
+ * Returns null when there are no points.
+ */
+export function changeOver(points: HistoryPoint[], range: HistoryRange): HistoryChange | null {
+  const pts = [...points].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  if (pts.length === 0) return null;
+  const latest = pts[pts.length - 1];
+  let base = pts[0];
+  let partial = false;
+  if (range !== "All") {
+    const target = addDays(latest.date, -HISTORY_PERIOD_DAYS[range]);
+    const onOrBefore = pts.filter((p) => p.date <= target);
+    if (onOrBefore.length) base = onOrBefore[onOrBefore.length - 1];
+    else partial = true;
+  }
+  const amount = r4(latest.value - base.value);
+  return { amount, pct: base.value !== 0 ? Math.round((amount / Math.abs(base.value)) * 1e6) / 1e6 : null, latest, base, partial };
+}
+
+export interface HistoryView {
+  range: HistoryRange;
+  /** Points from the comparison base to the latest snapshot, ascending. */
+  series: HistoryPoint[];
+  change: HistoryChange | null;
+  low: HistoryPoint | null;
+  high: HistoryPoint | null;
+}
+
+/** Series + change + low/high for one value of each snapshot (net worth, super liquid, or one account). */
+export function historyView(
+  snapshots: NetWorthSnapshot[],
+  range: HistoryRange,
+  value: (s: NetWorthSnapshot) => number | null = (s) => s.net_worth,
+): HistoryView {
+  const points: HistoryPoint[] = live(snapshots)
+    .map((s) => ({ date: s.taken_on, value: value(s) }))
+    .filter((p): p is HistoryPoint => p.value !== null && p.value !== undefined)
+    .map((p) => ({ date: p.date, value: r4(Number(p.value)) }))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const change = changeOver(points, range);
+  const series = change ? points.filter((p) => p.date >= change.base.date) : [];
+  let low: HistoryPoint | null = null, high: HistoryPoint | null = null;
+  for (const p of series) {
+    if (!low || p.value < low.value) low = p;
+    if (!high || p.value > high.value) high = p;
+  }
+  return { range, series, change, low, high };
+}
+
+/** perAccountSeries(id): the account's balance in snapshots that contain it. */
+export function accountBalanceIn(s: NetWorthSnapshot, accountId: string): number | null {
+  const a = (s.accounts ?? []).find((x) => x.id === accountId);
+  return a ? Number(a.balance) : null;
+}
+
+// ---------------------------------------------------------------------------
 // §7 Meal plans
 // ---------------------------------------------------------------------------
 
@@ -699,19 +819,48 @@ export function matchByName<T extends { name: string; archived?: boolean }>(quer
 // §8 Display
 // ---------------------------------------------------------------------------
 
-/** `$1,234` for whole numbers, `$1,234.56` otherwise; negatives with a true minus sign. */
+/** Round half away from zero at `scale` (100 = cents, 1 = dollars), immune to binary noise (999.995 → 1000). */
+function roundHalfAway(abs: number, scale: number): number {
+  return Math.round(Number((abs * scale).toPrecision(12)));
+}
+
+/**
+ * §8 currency display (stored values are never rounded):
+ * |value| ≥ 1,000 → whole dollars (`$1,235`); below that `$12` when whole, else `$12.34`.
+ * Negatives use a true minus sign (`−$153`); anything that displays as zero is `$0`.
+ */
 export function formatMoney(x: number | null | undefined): string {
-  if (x === null || x === undefined) return "—";
-  const v = r4(x);
+  if (x === null || x === undefined || Number.isNaN(Number(x))) return "—";
+  const v = Number(x);
   const abs = Math.abs(v);
-  const whole = Math.abs(abs - Math.round(abs)) < 0.005;
-  const s = abs.toLocaleString("en-US", {
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: whole ? 0 : 2,
-  });
-  return `${v < 0 && !(whole && Math.round(abs) === 0) ? "−" : ""}$${s}`;
+  const cents = roundHalfAway(abs, 100);
+  if (cents === 0) return "$0";
+  let body: string;
+  if (cents >= 100000) {
+    body = roundHalfAway(abs, 1).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  } else if (cents % 100 === 0) {
+    body = String(cents / 100);
+  } else {
+    body = (cents / 100).toFixed(2);
+  }
+  return `${v < 0 ? "\u2212" : ""}$${body}`;
 }
 
 export function formatPct(x: number): string {
   return `${(x * 100).toFixed(1)}%`;
+}
+
+const SHORT_MONTHS = MONTH_NAMES.map((m) => m.slice(0, 3));
+
+/** "Aug 3", or "Aug 3, 2025" when `refYear` is given and differs. */
+export function formatShortDate(iso: string, refYear?: number): string {
+  const p = parseIsoDate(iso);
+  if (!p) return iso;
+  return `${SHORT_MONTHS[p.month - 1]} ${p.day}${refYear !== undefined && refYear !== p.year ? `, ${p.year}` : ""}`;
+}
+
+/** Signed percent with one decimal: "+5.8%", "\u22121.2%". */
+export function formatSignedPct(x: number): string {
+  const v = Math.round(x * 1000) / 10;
+  return `${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${Math.abs(v).toFixed(1)}%`;
 }

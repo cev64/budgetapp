@@ -10,6 +10,13 @@ import {
   compareYM,
   formatMoney,
   formatPct,
+  formatShortDate,
+  formatSignedPct,
+  type HistoryChange,
+  type HistoryRange,
+  historyView,
+  accountBalanceIn,
+  type NetWorthSnapshot,
   type Kind,
   type MatchResult,
   matchByName,
@@ -255,6 +262,47 @@ function categoryStatus(v: MonthView, categoryId: string) {
 function categorySentence(v: MonthView, categoryId: string): string {
   const r = v.categories.find((c) => c.category_id === categoryId);
   return r ? `${label(v.year, v.month)} → ${rowLine(r).trim()}` : "";
+}
+
+/**
+ * §5b: after any write that can change net worth, refresh today's snapshot. Never fails the
+ * user's write: errors are logged and reported as `false`.
+ */
+async function refreshSnapshotSafely(ctx: ToolContext): Promise<boolean> {
+  try {
+    await ctx.store.refreshNetWorthSnapshot();
+    return true;
+  } catch (e) {
+    console.error("[budget-mcp] net worth snapshot refresh failed:", e instanceof Error ? e.message : String(e));
+    return false;
+  }
+}
+
+const RANGE_LABEL: Record<Exclude<HistoryRange, "All">, string> = { "1M": "30 days", "3M": "3 months", "6M": "6 months", "1Y": "1 year" };
+
+/** "up $1,240 (+5.8%) over 3 months" / "down $300 (−1.2%) since Aug 3" / "unchanged over 30 days" */
+function describeChange(c: HistoryChange, range: HistoryRange, refYear: number): string {
+  const span = range === "All" || c.partial ? `since ${formatShortDate(c.base.date, refYear)}` : `over ${RANGE_LABEL[range]}`;
+  if (c.amount === 0) return `unchanged ${span}`;
+  const pct = c.pct === null ? "" : ` (${formatSignedPct(c.pct)})`;
+  return `${c.amount > 0 ? "up" : "down"} ${formatMoney(Math.abs(c.amount))}${pct} ${span}`;
+}
+
+function changeOut(c: HistoryChange, range: HistoryRange, refYear: number) {
+  return {
+    amount: c.amount,
+    pct: c.pct,
+    from_date: c.base.date,
+    from_value: c.base.value,
+    to_date: c.latest.date,
+    to_value: c.latest.value,
+    partial: c.partial,
+    label: describeChange(c, range, refYear),
+  };
+}
+
+async function linkedToAccount(ctx: ToolContext, categoryId: string): Promise<boolean> {
+  return (await ctx.store.listAccounts()).some((a) => a.linked_category_id === categoryId);
 }
 
 // ---------------------------------------------------------------------------
@@ -545,6 +593,8 @@ async function setBudgetField(
   const before = old?.[field] ?? null;
   const row: Budget = { year: y, month: m, category_id: cat.id, expected: old?.expected ?? null, actual: old?.actual ?? null, [field]: value };
   await ctx.store.upsertBudgets([row]);
+  // Linked accounts (401k, HSA) are base + multiplier × Σ budget.actual, so net worth moved.
+  const snapshotRefreshed = field === "actual" && (await linkedToAccount(ctx, cat.id)) ? await refreshSnapshotSafely(ctx) : undefined;
   const v = monthView(await monthSnapshot(ctx, y, m), y, m);
   const status = categoryStatus(v, cat.id);
   const lines = [...(created ? [created] : [])];
@@ -568,7 +618,15 @@ async function setBudgetField(
   if (v.closed) lines.push(`Note: ${label(y, m)} is closed, so the year summary reflects this change.`);
   return {
     text: lines.join("\n"),
-    data: { year: y, month: m, category: status, previous: before, month_created_message: created, totals: { expected: v.expected, actual: v.actual } },
+    data: {
+      year: y,
+      month: m,
+      category: status,
+      previous: before,
+      month_created_message: created,
+      totals: { expected: v.expected, actual: v.actual },
+      ...(snapshotRefreshed !== undefined ? { net_worth_snapshot_refreshed: snapshotRefreshed } : {}),
+    },
   };
 }
 
@@ -746,8 +804,13 @@ tool({
     const linked = [...new Set(accounts.map((a) => a.linked_category_id).filter((x): x is string => !!x))];
     const budgets = linked.length ? await ctx.store.listBudgets({ categoryIds: linked }) : [];
     const v = netWorthView({ settings, categories, months: [], budgets, transactions: [], accounts, ledger_entries });
+    const snaps = await ctx.store.listNetWorthSnapshots();
+    const t = today(ctx);
+    const hist = snaps.length >= 2 ? historyView(snaps, "1M") : null;
+    const change30 = hist?.change ? changeOut(hist.change, "1M", t.year) : null;
     const lines = [
       `Net worth: ${formatMoney(v.net_worth)} · Super liquid: ${formatMoney(v.super_liquid)} · Net reconciliations: ${formatMoney(v.net_reconciliations)}`,
+      ...(change30 ? [`30-day change (daily snapshots): ${change30.label}. See get_net_worth_history for the trend.`] : []),
       "Accounts:",
       ...v.accounts.map((a) =>
         `  ${a.name} (${a.account_group}${a.liquid ? ", liquid" : ""}): ${formatMoney(a.balance)}${a.linked ? ` — auto: base ${formatMoney(a.base_amount)} + ${a.linked_category} contributions` : ""}`
@@ -765,6 +828,83 @@ tool({
         net_reconciliations: v.net_reconciliations,
         accounts: v.accounts.map(({ id: _id, ...a }) => a),
         unsettled_ledger: v.unsettled.map((e) => ({ id: e.id, name: e.name, amount: Number(e.amount), note: e.note ?? null })),
+        change_30d: change30,
+      },
+    };
+  },
+});
+
+// 12b. get_net_worth_history ---------------------------------------------
+tool({
+  name: "get_net_worth_history",
+  title: "Net worth history",
+  description:
+    "Net worth over time from the daily snapshots (one per America/New_York day: taken nightly and whenever balances, IOUs or linked contributions change). " +
+    'Returns the series, the change over the range (latest vs the snapshot on or before latest − range; "since <date>" when history is shorter), and the low and high. ' +
+    'range: 1M = 30 days, 3M = 91 (default), 6M = 182, 1Y = 365, All. Pass `account` for one account\'s balance instead of total net worth. E.g. "how has my net worth changed this year?" → {range: "1Y"}.',
+  inputSchema: {
+    range: z.enum(["1M", "3M", "6M", "1Y", "All"]).default("3M").describe("1M, 3M (default), 6M, 1Y or All."),
+    account: z.string().min(1).optional().describe('Optional account name (case-insensitive, fuzzy), e.g. "checking" or "401k".'),
+  },
+  annotations: READ,
+  handler: async (args: { range?: HistoryRange; account?: string }, ctx) => {
+    const range: HistoryRange = args.range ?? "3M";
+    const t = today(ctx);
+    const [snaps, accounts] = await Promise.all([ctx.store.listNetWorthSnapshots(), args.account ? ctx.store.listAccounts() : Promise.resolve([])]);
+    let acct: { id: string; name: string } | null = null;
+    if (args.account) {
+      const sorted = [...accounts].sort((a, b) => a.sort_order - b.sort_order);
+      const res = matchByName(args.account, sorted);
+      if (!res.ok) explainMatch("account", args.account, res, sorted.filter((a) => !a.archived));
+      acct = res.item;
+    }
+    const subject = acct ? acct.name : "Net worth";
+    const value = acct ? (s: NetWorthSnapshot) => accountBalanceIn(s, acct!.id) : (s: NetWorthSnapshot) => s.net_worth;
+    const withValue = snaps.filter((s) => value(s) !== null);
+    if (withValue.length < 2) {
+      const only = withValue[0];
+      const startsToday = !only || only.taken_on >= t.iso;
+      const text = !only
+        ? `No ${acct ? `${acct.name} ` : "net worth "}history yet: history starts today. A snapshot is taken every night and whenever balances change, so a trend appears from tomorrow.`
+        : startsToday
+        ? `${subject} ${formatMoney(value(only))}. History starts today (first snapshot), so there is no change to show yet; check back tomorrow.`
+        : `${subject} ${formatMoney(value(only))} as of ${formatShortDate(only.taken_on, t.year)}, the only snapshot so far. History started then; a trend appears once there are two daily snapshots.`;
+      return {
+        text,
+        data: {
+          range,
+          account: acct?.name ?? null,
+          snapshot_count: withValue.length,
+          history_starts: only?.taken_on ?? t.iso,
+          latest: only ? { date: only.taken_on, value: value(only) } : null,
+          change: null,
+          low: null,
+          high: null,
+          series: only ? [acct ? { date: only.taken_on, balance: value(only) } : { date: only.taken_on, net_worth: only.net_worth, super_liquid: only.super_liquid }] : [],
+        },
+      };
+    }
+    const hv = historyView(withValue, range, value);
+    const c = hv.change!;
+    const inRange = withValue.filter((s) => s.taken_on >= c.base.date).sort((a, b) => (a.taken_on < b.taken_on ? -1 : 1));
+    const series = inRange.map((s) =>
+      acct ? { date: s.taken_on, balance: value(s) } : { date: s.taken_on, net_worth: Number(s.net_worth), super_liquid: Number(s.super_liquid) }
+    );
+    const asOf = c.latest.date < t.iso ? ` (as of ${formatShortDate(c.latest.date, t.year)})` : "";
+    const text = `${subject} ${formatMoney(c.latest.value)}${asOf}, ${describeChange(c, range, t.year)}; ` +
+      `low ${formatMoney(hv.low!.value)} on ${formatShortDate(hv.low!.date, t.year)}, high ${formatMoney(hv.high!.value)} on ${formatShortDate(hv.high!.date, t.year)}. ` +
+      `${series.length} snapshot(s) from ${formatShortDate(series[0].date, t.year)} to ${formatShortDate(c.latest.date, t.year)}.`;
+    return {
+      text,
+      data: {
+        range,
+        account: acct?.name ?? null,
+        snapshot_count: withValue.length,
+        latest: c.latest,
+        change: changeOut(c, range, t.year),
+        low: hv.low,
+        high: hv.high,
+        series,
       },
     };
   },
@@ -802,6 +942,7 @@ tool({
     }
     const next = { ...acct, ...(args.balance !== undefined ? { balance: args.balance } : {}), ...(args.base_amount !== undefined ? { base_amount: args.base_amount } : {}) };
     await ctx.store.upsertAccounts([next]);
+    const snapshotRefreshed = await refreshSnapshotSafely(ctx);
     const [settings, categories, accounts2, ledger_entries] = await Promise.all([
       ctx.store.getSettings(),
       Promise.resolve(cats),
@@ -817,7 +958,14 @@ tool({
       : `Set ${acct.name} base amount to ${formatMoney(args.base_amount)} (was ${formatMoney(acct.base_amount)}); balance is now ${formatMoney(bal)}.`;
     return {
       text: `${what}${acct.archived ? " (This account is archived and does not count toward net worth.)" : ""}\nNet worth is now ${formatMoney(v.net_worth)} · Super liquid ${formatMoney(v.super_liquid)}.`,
-      data: { account: acct.name, balance: bal, base_amount: next.base_amount, net_worth: v.net_worth, super_liquid: v.super_liquid },
+      data: {
+        account: acct.name,
+        balance: bal,
+        base_amount: next.base_amount,
+        net_worth: v.net_worth,
+        super_liquid: v.super_liquid,
+        net_worth_snapshot_refreshed: snapshotRefreshed,
+      },
     };
   },
 });
@@ -841,9 +989,14 @@ tool({
       { id: ctx.newId(), name: args.name.trim(), amount: args.amount, note: args.note ?? null, settled: false, sort_order: sort },
     ]);
     const recon = r4([...entries, row].filter((e) => !e.settled).reduce((a, e) => a + Number(e.amount), 0));
+    const snapshotRefreshed = await refreshSnapshotSafely(ctx);
     return {
       text: `Added ledger entry ${row.name}: ${formatMoney(row.amount)} (${row.amount >= 0 ? "owed to me" : "I owe"}). id:${row.id}\nNet reconciliations now ${formatMoney(recon)}.`,
-      data: { entry: { id: row.id, name: row.name, amount: Number(row.amount), note: row.note ?? null, settled: false }, net_reconciliations: recon },
+      data: {
+        entry: { id: row.id, name: row.name, amount: Number(row.amount), note: row.note ?? null, settled: false },
+        net_reconciliations: recon,
+        net_worth_snapshot_refreshed: snapshotRefreshed,
+      },
     };
   },
 });
@@ -887,11 +1040,17 @@ tool({
       return { text: `${entry.name} is already ${settled ? "settled" : "unsettled"}; nothing changed.`, data: { entry, changed: false } };
     }
     await ctx.store.upsertLedgerEntries([{ ...entry, settled }]);
+    const snapshotRefreshed = await refreshSnapshotSafely(ctx);
     const after = await ctx.store.listLedgerEntries();
     const recon = r4(after.filter((e) => !e.settled).reduce((a, e) => a + Number(e.amount), 0));
     return {
       text: `${settled ? "Settled" : "Reopened"} ${entry.name} (${formatMoney(entry.amount)}). Net reconciliations now ${formatMoney(recon)}.`,
-      data: { entry: { id: entry.id, name: entry.name, amount: Number(entry.amount), settled }, changed: true, net_reconciliations: recon },
+      data: {
+        entry: { id: entry.id, name: entry.name, amount: Number(entry.amount), settled },
+        changed: true,
+        net_reconciliations: recon,
+        net_worth_snapshot_refreshed: snapshotRefreshed,
+      },
     };
   },
 });
@@ -997,6 +1156,6 @@ Model:
 - Totals: leftover = income − expenses − savings contributions. "Saved" counts the 401k employer match (multiplier 2) but leftover does not.
 - Closing a month (set_month_closed) means it is final: the year summary then uses its actuals; open months contribute their budget (projection).
 - Months are created from the previous month's budgets plus recurring subscriptions (create_month); add_transaction / set_budget / set_actual create a missing month automatically and say so.
-- Net worth: accounts (update_account_balance; 401k/HSA-style linked accounts are computed from contributions) plus unsettled IOUs in the ledger (add_ledger_entry, settle_ledger_entry; positive = owed to me).
+- Net worth: accounts (update_account_balance; 401k/HSA-style linked accounts are computed from contributions) plus unsettled IOUs in the ledger (add_ledger_entry, settle_ledger_entry; positive = owed to me). A snapshot is kept per day (nightly and after changes); get_net_worth_history shows the trend.
 
 Tips: for "how much X do I have left" use get_budget_overview (remaining = expected − actual). To fix or remove a transaction, find its id with list_transactions first. Negative transaction amounts are refunds. Confirm what changed using the numbers the tools return.`;

@@ -13,7 +13,7 @@ const expected = JSON.parse(await Deno.readTextFile(new URL("expected.json", fix
 const NOW = new Date("2026-01-15T17:00:00Z");
 
 function setup(now = NOW): { store: InMemoryStore; ctx: ToolContext } {
-  const store = new InMemoryStore(backup);
+  const store = new InMemoryStore(backup, { now: () => now });
   let n = 0;
   const ctx = makeContext(store, {
     now: () => now,
@@ -39,19 +39,19 @@ async function ok(ctx: ToolContext, name: string, args: Record<string, unknown> 
 
 const cat = (data: Any, group: string, name: string) => data.groups[group].find((c: Any) => c.name === name);
 
-Deno.test("tool list: 16 tools, all with descriptions and annotations", () => {
+Deno.test("tool list: 17 tools, all with descriptions and annotations", () => {
   const names = TOOLS.map((t) => t.name);
   assertEquals(names, [
     "get_budget_overview", "list_categories", "add_transaction", "list_transactions", "update_transaction",
     "delete_transaction", "set_budget", "set_actual", "set_month_closed", "create_month", "get_year_summary",
-    "get_net_worth", "update_account_balance", "add_ledger_entry", "settle_ledger_entry", "get_meal_plans",
+    "get_net_worth", "get_net_worth_history", "update_account_balance", "add_ledger_entry", "settle_ledger_entry", "get_meal_plans",
   ]);
   for (const t of TOOLS) {
     assert(t.description.length > 60, t.name);
     assertEquals(typeof t.annotations.readOnlyHint, "boolean");
   }
   assertEquals(TOOLS.find((t) => t.name === "delete_transaction")!.annotations.destructiveHint, true);
-  for (const n of ["get_budget_overview", "list_categories", "list_transactions", "get_year_summary", "get_net_worth", "get_meal_plans"]) {
+  for (const n of ["get_budget_overview", "list_categories", "list_transactions", "get_year_summary", "get_net_worth", "get_net_worth_history", "get_meal_plans"]) {
     assertEquals(TOOLS.find((t) => t.name === n)!.annotations.readOnlyHint, true, n);
   }
 });
@@ -354,4 +354,159 @@ Deno.test("get_meal_plans and list_categories", async () => {
   assertEquals(cats.data.categories.find((c: Any) => c.name === "401k"), {
     name: "401k", kind: "savings", tracking: "manual", multiplier: 2, archived: false,
   });
+});
+
+// ---------------------------------------------------------------------------
+// Net worth history (§5b)
+// ---------------------------------------------------------------------------
+
+const CHK = "167fc82d-3932-5e37-8500-a47624562490";
+function seedHistory(store: InMemoryStore) {
+  const s = (taken_on: string, net_worth: number, chk: number | null) => ({
+    taken_on,
+    net_worth,
+    super_liquid: net_worth / 10,
+    reconciliations: 0,
+    accounts: chk === null ? [] : [{ id: CHK, name: "Checking", group: "cash", liquid: true, balance: chk }],
+    source: "auto" as const,
+  });
+  store.snapshots.push(
+    s("2025-10-01", 20000, 1000),
+    s("2025-10-14", 20900, 1200),
+    s("2025-11-20", 21500, null),
+    s("2025-12-20", 22100, 2600),
+    s("2026-01-10", 22800, 2400),
+    s("2026-01-15", 22560, 2500),
+  );
+}
+
+Deno.test("get_net_worth_history: fewer than 2 snapshots → history starts today", async () => {
+  const { ctx, store } = setup();
+  const none = await ok(ctx, "get_net_worth_history");
+  assertStringIncludes(none.text, "history starts today");
+  assertEquals([none.data.snapshot_count, none.data.change, none.data.history_starts], [0, null, "2026-01-15"]);
+  await store.refreshNetWorthSnapshot();
+  const one = await ok(ctx, "get_net_worth_history", { range: "1M" });
+  assertStringIncludes(one.text, "History starts today");
+  assertEquals(one.data.series, [{ date: "2026-01-15", net_worth: 14584.25, super_liquid: 1859.75 }]);
+});
+
+Deno.test("get_net_worth_history: series, change, low/high per range", async () => {
+  const { ctx, store } = setup();
+  seedHistory(store);
+  const m3 = await ok(ctx, "get_net_worth_history"); // default 3M: base = 2025-10-14
+  assertEquals(m3.data.range, "3M");
+  assertEquals(m3.data.change.amount, 1660);
+  assertEquals(m3.data.change.from_date, "2025-10-14");
+  assertEquals(m3.data.change.partial, false);
+  assertEquals(m3.data.series.length, 5);
+  assertEquals(m3.data.series[0], { date: "2025-10-14", net_worth: 20900, super_liquid: 2090 });
+  assertEquals(m3.text.split(";")[0], "Net worth $22,560, up $1,660 (+7.9%) over 3 months");
+  assertStringIncludes(m3.text, "low $20,900 on Oct 14, 2025, high $22,800 on Jan 10.");
+  const m1 = await ok(ctx, "get_net_worth_history", { range: "1M" }); // base = 2025-12-16 or before → 2025-11-20
+  assertEquals([m1.data.change.from_date, m1.data.change.amount], ["2025-11-20", 1060]);
+  const y1 = await ok(ctx, "get_net_worth_history", { range: "1Y" });
+  assertEquals(y1.data.change.partial, true);
+  assertStringIncludes(y1.text, "up $2,560 (+12.8%) since Oct 1, 2025");
+  const all = await ok(ctx, "get_net_worth_history", { range: "All" });
+  assertEquals(all.data.series.length, 6);
+  const bad = await call(ctx, "get_net_worth_history", { range: "2W" });
+  assert(bad.isError);
+});
+
+Deno.test("get_net_worth_history: one account's balance series", async () => {
+  const { ctx, store } = setup();
+  seedHistory(store);
+  const r = await ok(ctx, "get_net_worth_history", { account: "check", range: "All" });
+  assertEquals(r.data.account, "Checking");
+  assertEquals(r.data.series.map((p: Any) => p.balance), [1000, 1200, 2600, 2400, 2500]); // 2025-11-20 lacks it
+  assertEquals(r.data.change.amount, 1500);
+  assertEquals(r.data.high, { date: "2025-12-20", value: 2600 });
+  assertStringIncludes(r.text, "Checking $2,500, up $1,500 (+150.0%) since Oct 1, 2025");
+  const hsa = await ok(ctx, "get_net_worth_history", { account: "hsa" });
+  assertStringIncludes(hsa.text, "No HSA history yet: history starts today");
+  const unknown = await call(ctx, "get_net_worth_history", { account: "savings" });
+  assert(unknown.isError);
+  assertStringIncludes(unknown.text, "Valid account names");
+});
+
+Deno.test("text rounds amounts ≥ $1,000 to whole dollars (§8); structuredContent stays exact", async () => {
+  const { ctx } = setup();
+  const nw = await ok(ctx, "get_net_worth");
+  assertEquals(nw.data.net_worth, 14584.25);
+  assertStringIncludes(nw.text, "Net worth: $14,584 · Super liquid: $1,860 · Net reconciliations: $74.50");
+  assertStringIncludes(nw.text, "Credit card (debt, liquid): \u2212$640.25");
+  const pay = await ok(ctx, "set_actual", { category: "paychecks", actual: 2100.6 });
+  assertEquals(pay.data.category.actual, 2100.6);
+  assertStringIncludes(pay.text, "Set Paychecks actual for January 2026 to $2,101 (was —)");
+  const y = await ok(ctx, "get_year_summary", { year: 2025 });
+  assertEquals(y.data.totals.actual.leftover, 2481.75);
+  assertStringIncludes(y.text, "leftover $2,482; annualized savings $29,291 = 48.8% of net");
+});
+
+Deno.test("get_net_worth includes the 30-day change only when snapshots exist", async () => {
+  const { ctx, store } = setup();
+  assertEquals((await ok(ctx, "get_net_worth")).data.change_30d, null);
+  seedHistory(store);
+  const r = await ok(ctx, "get_net_worth");
+  assertEquals(r.data.change_30d.amount, 1060);
+  assertEquals(r.data.change_30d.from_date, "2025-11-20");
+  assertStringIncludes(r.text, "30-day change (daily snapshots): up $1,060 (+4.9%) over 30 days");
+  assertEquals(r.data.net_worth, expected.net_worth.net_worth, "live value still comes from §5");
+});
+
+Deno.test("writes that change net worth refresh today's snapshot", async () => {
+  const { ctx, store } = setup();
+  seedHistory(store); // includes a stale row for today (2026-01-15)
+  const today = () => store.snapshots.filter((s) => s.taken_on === "2026-01-15");
+  const base = expected.net_worth.net_worth;
+
+  const bal = await ok(ctx, "update_account_balance", { account: "checking", balance: 3000 });
+  assertEquals(bal.data.net_worth_snapshot_refreshed, true);
+  assertEquals(today().length, 1, "upserted, not duplicated");
+  assertEquals([today()[0].net_worth, today()[0].source], [base + 500, "manual"]);
+  assertEquals(today()[0].accounts.find((a) => a.name === "Checking")!.balance, 3000);
+
+  await ok(ctx, "add_ledger_entry", { name: "Sam", amount: 40 });
+  assertEquals(today()[0].net_worth, base + 540);
+  await ok(ctx, "settle_ledger_entry", { name: "sam" });
+  assertEquals(today()[0].net_worth, base + 500);
+
+  const k = await ok(ctx, "set_actual", { category: "401k", actual: 100 }); // linked, ×2 match
+  assertEquals(k.data.net_worth_snapshot_refreshed, true);
+  assertEquals(today()[0].net_worth, base + 700);
+  assertEquals(today()[0].accounts.find((a) => a.name === "401k")!.balance, 2400);
+
+  const before = structuredClone(store.snapshots);
+  const rent = await ok(ctx, "set_actual", { category: "rent", actual: 1193 }); // not linked
+  assertEquals(rent.data.net_worth_snapshot_refreshed, undefined);
+  await ok(ctx, "set_budget", { category: "401k", expected: 400 }); // expected never affects net worth
+  await ok(ctx, "add_transaction", { amount: 5, category: "food", item: "x" });
+  assertEquals(store.snapshots, before);
+  assertEquals(store.snapshots.filter((s) => s.taken_on < "2026-01-15").length, 5, "earlier days are frozen");
+});
+
+Deno.test("a failing snapshot refresh never fails the user's write", async () => {
+  class FlakyStore extends InMemoryStore {
+    override refreshNetWorthSnapshot(): Promise<never> {
+      return Promise.reject(new Error("rpc down"));
+    }
+  }
+  const store = new FlakyStore(backup, { now: () => NOW });
+  const ctx = makeContext(store, { now: () => NOW });
+  const errors: unknown[][] = [];
+  const orig = console.error;
+  console.error = (...a: unknown[]) => errors.push(a);
+  try {
+    const r = await ok(ctx, "update_account_balance", { account: "checking", balance: 3000 });
+    assertEquals(r.data.net_worth_snapshot_refreshed, false);
+    assertEquals(store.accounts.find((a) => a.name === "Checking")!.balance, 3000);
+    assertEquals((await ok(ctx, "add_ledger_entry", { name: "Sam", amount: 1 })).data.net_worth_snapshot_refreshed, false);
+    assertEquals((await ok(ctx, "settle_ledger_entry", { name: "Sam" })).data.net_worth_snapshot_refreshed, false);
+    assertEquals((await ok(ctx, "set_actual", { category: "hsa", actual: 50 })).data.net_worth_snapshot_refreshed, false);
+  } finally {
+    console.error = orig;
+  }
+  assertEquals(errors.length, 4);
+  assertStringIncludes(String(errors[0][1]), "rpc down");
 });

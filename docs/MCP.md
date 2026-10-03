@@ -93,11 +93,19 @@ negative transaction amounts are refunds.
 | `set_month_closed` | Closes or reopens a month. Closed months feed their actuals into the year summary. Year is optional. | "Close September" |
 | `create_month` | Starts a month: copies expected amounts forward and adds the recurring items. Does nothing if the month exists. | "Start November" |
 | `get_year_summary` (read-only) | Per-category expected vs projected actual, totals, annualized savings, % of net and gross income, and each month's status and leftover. | "How's 2026 looking?" |
-| `get_net_worth` (read-only) | Accounts (linked ones computed), net worth, super liquid assets, net reconciliations, unsettled IOUs. | "What's my net worth?" |
+| `get_net_worth` (read-only) | Accounts (linked ones computed), net worth, super liquid assets, net reconciliations, unsettled IOUs, plus the 30-day change when snapshots exist. | "What's my net worth?" |
+| `get_net_worth_history` (read-only) | Daily snapshot series (`range` 1M / 3M (default) / 6M / 1Y / All; optional `account` for one account's balance), the change over the range per DOMAIN_RULES §5b, and the low and high. With fewer than 2 snapshots it says history starts today. | "How has my net worth changed over 6 months?" |
 | `update_account_balance` | Sets an account balance. Linked accounts (401k, HSA) refuse a balance and take `base_amount` instead. | "Checking is 2,340 now" |
 | `add_ledger_entry` | Adds an IOU (positive = owed to me, negative = I owe). | "Sam owes me 40 for tickets" |
 | `settle_ledger_entry` | Settles an IOU by name or id. `settled: false` reopens it. | "Sam paid me back" |
 | `get_meal_plans` (read-only) | Meal plans and recipes with totals and monthly cost (× days per month). | "What does my deficit day cost per month?" |
+
+Net worth snapshots (§5b): after every write that can change net worth (`update_account_balance`,
+`add_ledger_entry`, `settle_ledger_entry`, and `set_actual` on a category linked to an account,
+such as 401k or HSA), the server refreshes today's snapshot by calling the SQL function
+`write_net_worth_snapshot(user, 'manual')` with the server key, so the math stays in SQL. If that
+call fails, the error is logged and the user's write still succeeds. The result's
+`net_worth_snapshot_refreshed` field reports `false` in that case.
 
 Every tool returns a short human-readable text and `structuredContent` (JSON). Tools carry
 MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`). The server also sends
@@ -158,6 +166,9 @@ shim at a branch name.
 
 No extra secrets are needed. `SUPABASE_URL` and the secret / service-role key are injected
 automatically. The `mcp_tokens` table comes from `supabase/migrations/20261003000000_mcp_tokens.sql`.
+Net worth history needs `supabase/migrations/20261003010000_net_worth_history.sql`, which creates
+`net_worth_snapshots` and `write_net_worth_snapshot()`. That function is executable by
+service_role and revoked from anon and authenticated.
 
 Smoke test after deploying (with a real token):
 

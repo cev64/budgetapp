@@ -12,6 +12,7 @@ import {
   type MealItem,
   type MealPlan,
   type Month,
+  type NetWorthSnapshot,
   type RecurringItem,
   type Settings,
   type Transaction,
@@ -63,6 +64,24 @@ function toMealItem(r: Row): MealItem {
     fat: numOrNull(r.fat),
     cost: numOrNull(r.cost),
   } as MealItem;
+}
+
+function toSnapshot(r: Row): NetWorthSnapshot {
+  return {
+    taken_on: String(r.taken_on),
+    net_worth: num(r.net_worth),
+    super_liquid: num(r.super_liquid),
+    reconciliations: num(r.reconciliations),
+    accounts: (Array.isArray(r.accounts) ? r.accounts : []).map((a: Row) => ({
+      id: String(a.id),
+      name: String(a.name ?? ""),
+      group: String(a.group ?? ""),
+      liquid: !!a.liquid,
+      balance: num(a.balance),
+    })),
+    source: r.source ?? "auto",
+    deleted: !!r.deleted,
+  };
 }
 
 export class StoreError extends Error {}
@@ -163,6 +182,19 @@ export class SupabaseStore implements BudgetStore {
   }
   async listMealItems() {
     return (await this.all("meal_items")).map(toMealItem);
+  }
+
+  async listNetWorthSnapshots(f: { from?: string } = {}) {
+    const rows = await this.all("net_worth_snapshots", (q) => (f.from ? q.gte("taken_on", f.from) : q), ["taken_on"]);
+    return rows.map(toSnapshot);
+  }
+
+  async refreshNetWorthSnapshot() {
+    // SECURITY DEFINER SQL function; executable by service_role only (revoked from anon/authenticated).
+    const { data, error } = await this.db.rpc("write_net_worth_snapshot", { p_user: this.userId, p_source: "manual" });
+    if (error) throw new StoreError(`Database error refreshing the net worth snapshot: ${error.message}`);
+    const row = Array.isArray(data) ? data[0] : data;
+    return row ? toSnapshot(row) : null;
   }
 
   async upsertMonths(rows: Month[]) {

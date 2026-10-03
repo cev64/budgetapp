@@ -78,7 +78,7 @@ Deno.test("MCP over HTTP: initialize, tools/list, tools/call (in-memory)", async
   assertStringIncludes(init.body.result.instructions, "ledger");
   const list = await rpc(h, url, "tools/list", {}, 2, { "mcp-protocol-version": "2025-06-18" });
   const tools = list.body.result.tools;
-  assertEquals(tools.length, 16);
+  assertEquals(tools.length, 17);
   const add = tools.find((t: { name: string }) => t.name === "add_transaction");
   assertEquals(add.inputSchema.type, "object");
   assertEquals(add.inputSchema.required.sort(), ["amount", "category", "item"]);
@@ -130,6 +130,13 @@ Deno.test("Supabase store: token lookup by hash, 401s, and every query scoped to
     if (req.method === "GET" && table === "categories") {
       return reply([{ id: FOOD, user_id: USER, name: "Food", kind: "expense", tracking: "ledger", match_multiplier: "1", sort_order: 12, archived: false, deleted: false }]);
     }
+    if (req.method === "POST" && url.pathname === "/rest/v1/rpc/write_net_worth_snapshot") {
+      // Simulate an RPC failure: the user's write must still succeed.
+      return new Response(JSON.stringify({ code: "42501", message: "permission denied (simulated)" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    }
     if (req.method === "GET") return reply([]);
     if (req.method === "POST") return reply(Array.isArray(body) ? body : [body]);
     return new Response(null, { status: 204 });
@@ -157,7 +164,29 @@ Deno.test("Supabase store: token lookup by hash, 401s, and every query scoped to
     assertEquals(body.result.structuredContent.transaction.amount, 14);
     await new Promise((r) => setTimeout(r, 20)); // let the last_used_at update run
 
-    const budgetTables = ["settings", "categories", "months", "budgets", "transactions", "recurring_items", "accounts", "ledger_entries", "meal_plans", "meal_items"];
+    // A net-worth write refreshes today's snapshot via RPC; the (simulated) RPC failure is swallowed.
+    const errors: unknown[][] = [];
+    const origError = console.error;
+    console.error = (...a: unknown[]) => errors.push(a);
+    let ledger;
+    try {
+      ledger = await rpc(h, `http://f/budget-mcp?key=${TOKEN}`, "tools/call", { name: "add_ledger_entry", arguments: { name: "Sam", amount: 40 } }, 8);
+    } finally {
+      console.error = origError;
+    }
+    assert(!ledger.body.result.isError, JSON.stringify(ledger.body));
+    assertEquals(ledger.body.result.structuredContent.net_worth_snapshot_refreshed, false);
+    assertStringIncludes(String(errors[0]?.[1]), "permission denied (simulated)");
+    const rpcCall = calls.find((c) => c.url.pathname === "/rest/v1/rpc/write_net_worth_snapshot");
+    assert(rpcCall, "RPC called");
+    assertEquals(rpcCall.method, "POST");
+    assertEquals(rpcCall.body, { p_user: USER, p_source: "manual" });
+
+    const hist = await rpc(h, `http://f/budget-mcp?key=${TOKEN}`, "tools/call", { name: "get_net_worth_history", arguments: {} }, 9);
+    assertStringIncludes(hist.body.result.content[0].text, "history starts today");
+    assert(calls.some((c) => c.url.pathname === "/rest/v1/net_worth_snapshots" && c.method === "GET"));
+
+    const budgetTables = ["settings", "categories", "months", "budgets", "transactions", "recurring_items", "accounts", "ledger_entries", "meal_plans", "meal_items", "net_worth_snapshots"];
     const relevant = calls.filter((c) => budgetTables.includes(c.url.pathname.replace("/rest/v1/", "")));
     assert(relevant.length > 5);
     for (const c of relevant) {
@@ -174,7 +203,7 @@ Deno.test("Supabase store: token lookup by hash, 401s, and every query scoped to
       }
     }
     const writes = relevant.filter((c) => c.method === "POST").map((c) => `${c.url.pathname.replace("/rest/v1/", "")}?${c.url.searchParams.get("on_conflict")}`);
-    assertEquals(writes, ["months?user_id,year,month", "budgets?user_id,year,month,category_id", "transactions?id"]);
+    assertEquals(writes, ["months?user_id,year,month", "budgets?user_id,year,month,category_id", "transactions?id", "ledger_entries?id"]);
     const tx = relevant.find((c) => c.method === "POST" && c.url.pathname.endsWith("/transactions"))!.body as Record<string, unknown>[];
     assertEquals(tx[0].category_id, FOOD);
     assertEquals(tx[0].deleted, false);
