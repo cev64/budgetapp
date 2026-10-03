@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- From design/tokens.json (light). Compose reads tokens from ui/theme/Tokens.kt; these are for XML only. -->
+    <color name="bg">#FFFFFF</color>
+    <color name="ink">#08204F</color>
+    <color name="accent">#1059FC</color>
+    <color name="splash_bg">#FFFFFF</color>
+    <color name="widget_bg">#FFFFFF</color>
+    <color name="widget_ink">#08204F</color>
+    <color name="widget_ink3">#63718A</color>
+</resources>

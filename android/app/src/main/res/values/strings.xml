@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Budget</string>
+    <string name="widget_name">Budget</string>
+    <string name="widget_description">Leftover this month, top categories and a quick Add button</string>
+    <string name="shortcut_add_short">Add expense</string>
+    <string name="shortcut_add_long">Add an expense</string>
+    <string name="shortcut_add_disabled">Open Budget to add</string>
+    <string name="widget_preview_leftover">LEFTOVER · OCTOBER</string>
+    <string name="widget_preview_amount">$1,059</string>
+    <string name="widget_preview_add">+ Add</string>
+</resources>

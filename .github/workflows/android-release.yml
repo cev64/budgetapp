@@ -1,0 +1,93 @@
+name: Android release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Checkout (full history: versionCode = commit count)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=""
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then missing="$missing $v"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Release signing secrets missing:$missing. A release must be signed with the permanent key."
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/budget-release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/budget-release.jks" >> "$GITHUB_ENV"
+
+      - name: Check the tag matches version.properties
+        run: |
+          NAME=$(grep '^versionName=' version.properties | cut -d= -f2)
+          if [ "v$NAME" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match versionName $NAME in android/version.properties"
+            exit 1
+          fi
+
+      - name: Tests, lint, signed release
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-configuration-cache testDebugUnitTest lintDebug assembleRelease
+
+      - name: Verify signature
+        id: apk
+        run: |
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          case "$APK" in *UNSIGNED-DEBUGKEY*) echo "::error::Release APK fell back to the debug key"; exit 1;; esac
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          OUT="$RUNNER_TEMP/budget-${GITHUB_REF_NAME}.apk"
+          cp "$APK" "$OUT"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "${{ steps.apk.outputs.file }}" \
+            --title "Budget $GITHUB_REF_NAME" \
+            --notes "Signed release APK. Installs as an update over earlier signed releases (same applicationId com.personal.budget, same key, higher versionCode)." \
+            || gh release upload "$GITHUB_REF_NAME" "${{ steps.apk.outputs.file }}" --clobber
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/budget-release.jks"

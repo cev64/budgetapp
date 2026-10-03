@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash mark from design/brand/splash-icon.svg (288 canvas, inside the 192 safe circle), on the themed bg. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp" android:height="288dp" android:viewportWidth="288" android:viewportHeight="288">
+    <group android:translateX="144" android:translateY="144">
+        <group android:scaleX="6.8" android:scaleY="6.8">
+            <group android:translateX="-12.25" android:translateY="-12">
+                <path android:fillColor="#1059FC" android:fillType="evenOdd" android:pathData="M4 2H13A4.5 4.5 0 0 1 13 11H4Z M8 5V8H13A1.5 1.5 0 0 0 13 5Z" />
+                <path android:fillColor="#1059FC" android:fillType="evenOdd" android:pathData="M4 13H16A4.5 4.5 0 0 1 16 22H4Z M8 16V19H16A1.5 1.5 0 0 0 16 16Z" />
+            </group>
+        </group>
+    </group>
+</vector>

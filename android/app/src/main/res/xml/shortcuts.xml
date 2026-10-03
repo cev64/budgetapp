@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_expense"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_add_short"
+        android:shortcutLongLabel="@string/shortcut_add_long"
+        android:shortcutDisabledMessage="@string/shortcut_add_disabled">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="budget://add"
+            android:targetPackage="com.personal.budget"
+            android:targetClass="com.personal.budget.MainActivity" />
+    </shortcut>
+</shortcuts>

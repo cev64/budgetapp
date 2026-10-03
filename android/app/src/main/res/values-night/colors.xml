@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- From design/tokens.json (dark). -->
+    <color name="bg">#0A1122</color>
+    <color name="ink">#F5F8FF</color>
+    <color name="accent">#4A82FF</color>
+    <color name="splash_bg">#0A1122</color>
+    <color name="widget_bg">#0A1122</color>
+    <color name="widget_ink">#F5F8FF</color>
+    <color name="widget_ink3">#91A2BF</color>
+</resources>

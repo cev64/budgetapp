@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ backup / device-transfer rules.
+     Included: the Room database (all budget data, incl. unsynced edits) and app preferences.
+     Not included (so never backed up): auth tokens (datastore/auth.preferences_pb). A restored device keeps its data
+     and only needs one sign-in to resume syncing. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="budget.db" />
+        <include domain="database" path="budget.db-wal" />
+        <include domain="database" path="budget.db-shm" />
+        <include domain="file" path="datastore/prefs.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="budget.db" />
+        <include domain="database" path="budget.db-wal" />
+        <include domain="database" path="budget.db-shm" />
+        <include domain="file" path="datastore/prefs.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>
