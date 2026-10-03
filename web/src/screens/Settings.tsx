@@ -398,7 +398,19 @@ function DataCard() {
   const importJson = async (f: File) => {
     try {
       const file = parseBackup(JSON.parse(await f.text()));
-      const plan = planImport(ds, file);
+      // Plan against the server's current rows, never a cache or a half-finished first load:
+      // categories are matched by name, so planning against an empty list would duplicate them.
+      if (mode !== 'demo') {
+        setBusy(true);
+        await store.refresh(true);
+        setBusy(false);
+        const st = store.getState();
+        if (!st.loaded || st.status === 'offline') {
+          toast("Couldn't load your current data, so nothing was imported. Check your connection and try again.");
+          return;
+        }
+      }
+      const plan = planImport(store.dataset(), file);
       const yes = await ask({
         title: 'Import backup?',
         body: (
@@ -413,7 +425,8 @@ function DataCard() {
       });
       if (!yes) return;
       setBusy(true);
-      const ok = await actions.importBackup(plan);
+      // Re-plan in case data changed (e.g. realtime) while the dialog was open.
+      const ok = await actions.importBackup(planImport(store.dataset(), file));
       toast(ok ? 'Backup imported' : 'Import finished with errors');
     } catch (e) {
       toast(e instanceof BackupError ? e.message : e instanceof SyntaxError ? 'That file is not valid JSON.' : 'Could not read the file.');
