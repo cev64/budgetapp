@@ -43,11 +43,14 @@ on web, plus keyboard shortcut `N`).
 - "All transactions" tab: every transaction this month, filter by category, sorted by date.
 
 ### Year
+- **Hero (top of the page): Leftover vs plan** (DOMAIN_RULES §4b). Big signed number in good/bad
+  ("−$45 · behind plan"), then Projected leftover and Planned leftover, a progress bar
+  (projected / planned) and a row of per-month chips (closed months: their vs-plan amount, open months: "open").
 - Year picker. Table: category, Expected, Actual (projected), Difference, grouped like the sheet.
-- Totals: Expenses, Saved, Leftover. **Annualized savings**, % of net income, % of gross income (both columns).
-- Chart: per-month bars of expenses vs budget plus leftover line (open months shown hatched/lighter as projected).
+- Totals: Expenses, Saved, Leftover.
+- **Savings rate** card, below the table (no longer the headline): annualized savings, % of net and % of gross income (both columns).
+- Chart: per-month bars of expenses vs budget plus leftover line (open months shown lighter as projected).
 - Months list with closed/open status and each month's leftover.
-
 ### Net worth
 - Net worth total, Super liquid assets, Net reconciliations, each with change vs 30 days ago.
 - **History chart** (DOMAIN_RULES §5b): line/area chart of net worth over time with a segmented range
