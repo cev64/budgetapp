@@ -87,7 +87,10 @@ data class YearMonthPoint(
     val expected: Totals,
     /** Projected totals (actuals for closed months, budget otherwise). */
     val projected: Totals,
-)
+) {
+    /** §4b: projectedLeftover − expectedLeftover; always 0 for open months. */
+    val vsPlan: Double get() = projected.leftover - expected.leftover
+}
 
 data class YearSummary(
     val year: Int,
@@ -96,7 +99,13 @@ data class YearSummary(
     val expected: YearColumn,
     val actual: YearColumn,
     val months: List<YearMonthPoint>,
-)
+) {
+    /** §4b leftoverVsPlan(Y) = yearActual.leftover − yearExpected.leftover. */
+    val leftoverVsPlan: Double get() = actual.totals.leftover - expected.totals.leftover
+
+    /** §4b progress = projected / planned leftover, only when the planned leftover is > 0. */
+    val leftoverProgress: Double? get() = expected.totals.leftover.takeIf { it > 0.0 }?.let { actual.totals.leftover / it }
+}
 
 data class NetWorthSummary(
     /** Computed balance per non-archived account id. */
@@ -187,6 +196,15 @@ class BudgetBook(
             actual = Totals.of(categories) { actual(key, it.id) },
         )
     }
+
+    /** §4b projectedLeftover(m): §2 leftover with projected(m, c) for every category. */
+    fun projectedLeftover(key: MonthKey): Double = Totals.of(categories) { projected(key, it.id) }.leftover
+
+    /** §4b monthVsPlan(m) = projectedLeftover(m) − expectedLeftover(m). 0 for open months. */
+    fun monthVsPlan(key: MonthKey): Double = projectedLeftover(key) - Totals.of(categories) { expected(key, it.id) }.leftover
+
+    /** §4b leftoverVsPlan(Y); null when the year has no months. */
+    fun leftoverVsPlan(year: Int, settings: BudgetSettings): Double? = yearSummary(year, settings)?.leftoverVsPlan
 
     fun years(): List<Int> = months.map { it.year }.distinct()
 
