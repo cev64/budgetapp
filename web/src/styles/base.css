@@ -1,0 +1,212 @@
+/* Fluid Glass base CSS and motion kit (docs/FLUID_GLASS_UI.md §5–§7), with colours as tokens
+   so the dark theme works. Values are copied exactly from the guide. */
+
+*, *::before, *::after { box-sizing: border-box }
+html { scrollbar-gutter: stable; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; background: var(--bg) }
+@supports not (scrollbar-gutter: stable) { html { overflow-y: scroll } }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/24px var(--body);
+  -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums lining-nums; font-feature-settings: var(--nums);
+  min-height: 100dvh;
+}
+html.modal-lock, html.modal-lock body { overflow: hidden }
+button { font-family: inherit }
+button, [role="tab"] { touch-action: manipulation }
+button { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none }
+input, select, textarea { font-family: inherit; color: inherit }
+[hidden] { display: none !important }
+:focus:not(:focus-visible) { outline: none }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px }
+h1, h2, h3, p { margin: 0 }
+a { color: var(--accent-ink) }
+code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); padding: 1px 5px; border-radius: 5px }
+
+/* ---- buttons ---- */
+.btn {
+  font: 500 16px/24px var(--body); background: var(--card); color: var(--ink); border: 1px solid var(--line-2);
+  padding: 9px 14px; min-height: var(--hit); border-radius: var(--radius-sm); white-space: nowrap; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background-color .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease), transform .18s var(--ease), opacity .2s;
+}
+@media (hover: hover) { .btn:hover { color: var(--ink); background: var(--surface) } }
+.btn:active { transform: scale(.97) }
+.btn:disabled { opacity: .55; cursor: default }
+.btn:disabled:active { transform: none }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent) }
+@media (hover: hover) { .btn.primary:hover:not(:disabled) { background: var(--accent-ink); border-color: var(--accent-ink) } }
+.btn.ghost { background: none; border-color: transparent }
+@media (hover: hover) { .btn.ghost:hover { background: var(--surface-2) } }
+.btn.danger { color: var(--bad); border-color: var(--bad-line) }
+@media (hover: hover) { .btn.danger:hover { background: var(--bad-soft) } }
+.btn.destroy { background: var(--bad); border-color: var(--bad); color: var(--on-accent) }
+.btn.block { width: 100% }
+.btn.lg { padding: 11px 18px; min-height: 48px; font-weight: 600 }
+
+.icon-btn {
+  display: inline-grid; place-items: center; width: var(--hit); height: var(--hit); border-radius: 12px; border: 0;
+  background: none; color: var(--ink-2); cursor: pointer; flex: none;
+  transition: background-color .2s var(--ease), color .2s var(--ease), transform .18s var(--ease);
+}
+@media (hover: hover) { .icon-btn:hover { background: var(--surface-2); color: var(--ink) } }
+.icon-btn:active { transform: scale(.94) }
+.icon-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--ink) }
+.icon-btn:disabled { opacity: .4; cursor: default }
+.icon-btn.sm { width: var(--hit); height: var(--hit); border-radius: 10px }
+
+.link {
+  position: relative; background: none; border: 0; padding: 0; color: var(--accent-ink); font: 500 16px/24px var(--body); cursor: pointer;
+  transition: color .2s var(--ease), opacity .2s;
+}
+@media (hover: hover) { .link:hover { text-decoration: underline } }
+.link:disabled { opacity: .5; cursor: default; text-decoration: none }
+.link.warn { color: var(--bad) }
+/* Small controls keep a ≥44px hit area without growing visually. */
+.link::after, .seg button::after, .pick.chip::after, .switch::after, .check::after {
+  content: ''; position: absolute; left: 50%; top: 50%; min-width: 100%; min-height: 100%;
+  width: var(--hit); height: var(--hit); transform: translate(-50%, -50%);
+}
+
+/* ---- cards: base content, never glass ---- */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow) }
+
+/* ---- segmented control: one pill glides to the selection ---- */
+.seg { display: inline-flex; position: relative; gap: 2px; padding: 3px; border-radius: var(--radius-seg); background: var(--surface-2); max-width: 100% }
+.seg button {
+  position: relative; z-index: 1; background: none; border: 0; border-radius: 8px; padding: 7px 14px; min-height: 38px; cursor: pointer;
+  font: 500 16px/24px var(--body); color: var(--ink-2); transition: color .25s var(--ease), transform .18s var(--ease); white-space: nowrap;
+}
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { color: var(--ink) }
+.seg button:active { transform: scale(.96) }
+.seg-ind {
+  position: absolute; top: 3px; left: 0; height: calc(100% - 6px); border-radius: 8px; background: var(--seg-pill); pointer-events: none;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .12), 0 1px 1px rgba(16, 24, 40, .04); will-change: transform, width;
+}
+.seg-ind.ready { transition: transform .45s var(--ease), width .45s var(--ease) }
+.seg.fill { display: flex; width: 100% }
+.seg.fill button { flex: 1 1 0; min-width: 0 }
+
+/* ---- selectable tile ---- */
+.pick {
+  background: var(--surface); border: 1.5px solid transparent; border-radius: 10px; padding: 8px 12px; cursor: pointer;
+  color: var(--ink); font: 500 16px/24px var(--body); text-align: left;
+  transition: background-color .25s var(--ease), border-color .25s var(--ease), opacity .3s var(--ease), transform .18s var(--ease), color .25s var(--ease);
+}
+@media (hover: hover) { .pick:hover { background: var(--surface-2) } }
+.pick:active { transform: scale(.97) }
+.pick.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink) }
+.pick.off { opacity: .5 }
+
+/* ---- pills ---- */
+.pill { font: 500 14px/20px var(--body); padding: 2px 10px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px }
+.pill.accent { background: var(--accent-soft); color: var(--accent-ink) }
+.pill.good { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good) }
+.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad) }
+.pill.sm { font-size: 14px; line-height: 20px; padding: 0 8px }
+
+/* ---- glass layers ---- */
+.glass-bar { background: var(--glass-bar); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4) }
+.glass-card {
+  background: var(--glass-card); -webkit-backdrop-filter: blur(18px) saturate(1.7); backdrop-filter: blur(18px) saturate(1.7);
+  border: 1px solid rgba(var(--shadow-rgb), .07); box-shadow: 0 10px 30px rgba(var(--shadow-rgb), .12), 0 1px 3px rgba(var(--shadow-rgb), .06);
+}
+
+/* ---- keyframes (§6.1) ---- */
+@keyframes riseIn { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes settle { from { opacity: 0; transform: translateY(8px) scale(.96) } to { opacity: 1; transform: none } }
+@keyframes ckPop { from { opacity: 0; transform: scale(.3) } to { opacity: 1; transform: scale(1) } }
+@keyframes tpIn { from { opacity: 0; transform: scale(.55) } to { opacity: 1; transform: none } }
+@keyframes bump { 40% { transform: scale(1.12) } to { transform: scale(1) } }
+@keyframes pickIn { from { background-color: var(--surface); border-color: transparent; transform: scale(.985) } }
+@keyframes rollInUp { from { opacity: 0; transform: translateY(55%); filter: blur(6px) } to { opacity: 1; transform: none; filter: none } }
+@keyframes rollOutUp { to { opacity: 0; transform: translateY(-55%); filter: blur(6px) } }
+@keyframes rollInDown { from { opacity: 0; transform: translateY(-55%); filter: blur(6px) } to { opacity: 1; transform: none; filter: none } }
+@keyframes rollOutDown { to { opacity: 0; transform: translateY(55%); filter: blur(6px) } }
+@keyframes pulse { 50% { opacity: .35 } }
+@keyframes piIn { from { opacity: 0; transform: translateY(-5px) } to { opacity: 1; transform: none } }
+
+.panel.on { animation: riseIn .42s var(--ease) both }
+.list.enter > * { animation: riseIn .5s var(--ease) both; animation-delay: calc(min(var(--n, 12), 12) * 28ms) }
+.pick.pop { animation: pickIn .4s var(--ease) }
+.pick.pop .check { animation: ckPop .5s var(--spring) both }
+.num.bump { display: inline-block; animation: bump .45s var(--spring) }
+.arrive { animation: settle .6s var(--spring) both }
+.grid.enter > * { animation: tpIn .55s var(--spring) both; animation-delay: calc(var(--n) * 32ms + 60ms) }
+.live-dot { animation: pulse 1.6s infinite }
+
+/* ---- menus (§7.3) ---- */
+.menu-wrap { position: relative; display: inline-flex }
+.menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; min-width: 200px; padding: 6px; border-radius: var(--radius-menu);
+  background: var(--glass-menu); -webkit-backdrop-filter: blur(18px) saturate(1.7); backdrop-filter: blur(18px) saturate(1.7);
+  border: 1px solid rgba(var(--shadow-rgb), .08); box-shadow: 0 18px 44px rgba(var(--shadow-rgb), .16), 0 2px 8px rgba(var(--shadow-rgb), .06);
+  transform-origin: top right; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px) scale(.86); filter: blur(3px);
+  transition: opacity .16s var(--ease), transform .2s var(--ease), filter .16s var(--ease), visibility 0s linear .2s;
+}
+.menu.open {
+  opacity: 1; visibility: visible; pointer-events: auto; transform: none; filter: none;
+  transition: opacity .22s var(--ease), transform .5s var(--spring), filter .3s var(--ease), visibility 0s;
+}
+.menu.measure { transition: none !important; transform: none }
+.menu.open > * { animation: piIn .4s var(--ease) both; animation-delay: calc(var(--i) * 45ms + 70ms) }
+.menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--hit); padding: 10px 12px; border-radius: 9px; border: 0; background: none; text-align: left;
+  font: 500 16px/24px var(--body); color: var(--ink); cursor: pointer; transition: background-color .15s var(--ease), transform .15s var(--ease);
+}
+.menu-item svg { color: var(--ink-3); flex: none }
+@media (hover: hover) { .menu-item:hover { background: var(--surface-2) } }
+.menu-item:active { transform: scale(.98) }
+.menu-item.warn, .menu-item.warn svg { color: var(--bad) }
+.menu-sep { height: 1px; background: var(--line); margin: 4px 8px }
+
+/* ---- modal + sheet (§7.4) ---- */
+.modal {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: var(--scrim); -webkit-backdrop-filter: blur(8px) saturate(1.2); backdrop-filter: blur(8px) saturate(1.2);
+  opacity: 0; transition: opacity .3s var(--ease);
+}
+.modal.open { opacity: 1 }
+.sheet {
+  background: var(--glass-sheet); border-radius: var(--radius-sheet); max-width: 420px; width: 100%; padding: 22px 24px 20px;
+  box-shadow: 0 24px 64px rgba(var(--shadow-rgb), .22), 0 2px 6px rgba(var(--shadow-rgb), .06);
+  transform: translateY(14px) scale(.96); opacity: 0; transition: transform .45s var(--spring), opacity .3s var(--ease);
+  max-height: calc(100dvh - 40px); display: flex; flex-direction: column; outline: none;
+}
+.modal:not(.open) .sheet { transition: transform .27s var(--ease), opacity .18s var(--ease) }
+.modal:not(.open) { transition: opacity .18s var(--ease) }
+.sheet.wide { max-width: 560px }
+.modal.open .sheet { transform: none; opacity: 1 }
+.sheet .actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 16px; flex: none }
+@media (max-width: 480px) {
+  .sheet .actions { flex-direction: column-reverse }
+  .sheet .actions .btn { width: 100%; min-height: 48px }
+}
+
+/* ---- toast ---- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom)); z-index: 60; pointer-events: none;
+  transform: translate(-50%, 16px) scale(.96); opacity: 0; max-width: calc(100vw - 32px);
+  background: var(--toast); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  color: var(--on-toast); border-radius: var(--radius-bar); padding: 12px 20px; font: 500 14px/20px var(--body); text-align: center; box-shadow: 0 12px 32px rgba(16, 24, 40, .14);
+  transition: opacity .3s var(--ease), transform .45s var(--spring);
+}
+.toast.on { opacity: 1; transform: translate(-50%, 0) scale(1) }
+
+/* ---- expand (§7.6) ---- */
+.expand { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .5s var(--spring) }
+.expand > div { overflow: hidden; min-height: 0 }
+.open > .expand { grid-template-rows: 1fr }
+.expand .content {
+  opacity: 0; transform: translateY(-8px) scale(.98); filter: blur(4px); transform-origin: top center;
+  transition: opacity .2s var(--ease), transform .3s var(--ease), filter .25s var(--ease);
+}
+.open > .expand .content {
+  opacity: 1; transform: none; filter: none;
+  transition: opacity .35s var(--ease) .05s, transform .55s var(--spring) .05s, filter .4s var(--ease) .05s;
+}
+.chev { transition: transform .45s var(--spring), color .25s var(--ease) }
+.open .chev { transform: rotate(180deg); color: var(--accent) }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important }
+}

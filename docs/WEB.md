@@ -69,7 +69,6 @@ web/
       networth.ts            §5 net worth, super liquid, reconciliations, linked accounts
       history.ts             §5b net worth history: changeOver, ranges (1M/3M/6M/1Y/All), series, per-account
       categoryStyle.ts       category colour + symbol from design/tokens.json (palette + assignment)
-      meals.ts               §7 plan totals and monthly cost
       newMonth.ts            §6 new-month rows (budgets copied forward, recurring items, day clamped)
       format.ts              §8 money (whole dollars from $1,000) / percent / tone, parsing, brand voice strings
       backup.ts              backup JSON build / parse / merge plan (SYNC.md)
@@ -82,7 +81,7 @@ web/
       demoHistory.ts         synthetic net worth history for demo mode
       supabase.ts, demo.ts, safeStorage.ts
     app/                     Root (auth gate), routes, Shell (nav, top bar, add sheet), session context
-    screens/                 Home, Month (+ CategoryDetail), Year, NetWorth, Meals, Settings, Auth,
+    screens/                 Home, Month (+ CategoryDetail), Year, NetWorth (+ NetWorthHistory), Settings, Auth,
                              TransactionSheet, McpSection
     ui/                      Fluid Glass kit: motion.ts (tint, glideIndicator, rollText, FLIP), Seg,
                              Sheet + ask(), Toast, Menu, FlipList, Num, controls, theme, Brand (logo),
@@ -93,7 +92,7 @@ web/
 
 Screens use `useData()` for `{ ds, calc }` (live rows + a memoised domain calculator) and
 `useActions()` for writes. All numbers come from `src/domain`, which is tested against
-`docs/fixtures/expected.json` (every month, year, net-worth and meal-plan number).
+`docs/fixtures/expected.json` (every month, year and net-worth number).
 
 ### Store, sync and realtime
 
@@ -104,7 +103,7 @@ only sees live rows.
 - **Load:** on start the store paints the cached snapshot from localStorage
   (`budget.cache.<user id>`), then pulls every table in full from Supabase, 1000 rows per page,
   ordered by `updated_at` plus the key.
-- **Realtime:** one channel subscribes to `postgres_changes` on all eleven tables with the filter
+- **Realtime:** one channel subscribes to `postgres_changes` on all nine tables with the filter
   `user_id=eq.<uid>`. Each change is merged as it arrives, so edits on the phone show up live.
 - **Catch-up:** on window focus / tab visible, on the browser `online` event and whenever the realtime
   channel re-subscribes, the store pulls rows with `updated_at > cursor − 10 s` per table (SYNC.md rule 3).
@@ -113,8 +112,8 @@ only sees live rows.
 - **Writes are optimistic:** the store updates local state first, then upserts with the SYNC.md
   `on_conflict` keys, always sending `user_id` and never `updated_at`. The returned row (with the
   server's `updated_at`) replaces the local one, unless the row was edited again meanwhile. On
-  error the rows revert and a toast explains why. Deletes are tombstones (`deleted: true`); deleting
-  a meal plan tombstones its items; a category with data can only be archived. Ids come from
+  error the rows revert and a toast explains why. Deletes are tombstones (`deleted: true`); a
+  category with data can only be archived. Ids come from
   `crypto.randomUUID()`.
 - **Status dot** in the top bar: green synced, pulsing blue syncing, amber offline. Clicking it
   syncs now (also in Settings → Data).
@@ -168,10 +167,10 @@ Brand: the side nav shows the logo lockup and the rail / sign-in screen show the
 the exact strings from UI_ANATOMY "Brand (v2)" (saved / over-budget / month-closed / empty month / sign-in).
 Money display follows DOMAIN_RULES §8: whole dollars from $1,000 up; edit fields show the exact value. The dark theme follows
 `prefers-color-scheme` unless Settings → Appearance sets Light or Dark (`data-theme` on `<html>`,
-stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a glass bottom bar with a round Add
-button above it; 600–1023px an 80px rail with Add on top; from 1024px a 220px side nav, an Add button
-in the top bar, and multi-pane screens (Month list + category detail, Year tables + chart, Net worth and
-Meals side by side). Phone width (412px, Galaxy Fold cover) is a primary target, and nothing scrolls
+stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a floating glass bottom bar (Home, Month, Year, Net worth) with a
+round Add button above it; 600–1023px an 80px rail with Add on top; from 1024px a 220px side nav, an Add button
+in the top bar, and multi-pane screens (Month list + category detail, Year tables + chart, Net worth accounts and
+ledger side by side). Phone width (412px, Galaxy Fold cover) is a primary target, and nothing scrolls
 sideways at 360px. Keyboard: **N** opens the add sheet; Escape closes sheets and menus.
 
 Motion: gliding segmented/nav indicators, rolling numbers, FLIP lists that tint new rows accent and
@@ -191,6 +190,11 @@ the app opens and stays readable offline.
 `config/**`: `npm ci`, typecheck, `vitest run`, build. On `main` it uploads `web/dist` with
 `actions/upload-pages-artifact` and publishes it with `actions/deploy-pages`. One-time setup: repo
 **Settings → Pages → Source: GitHub Actions**.
+
+## Removed: Meals
+
+Meal plans are not part of the product. The web app has no Meals screen, tables or setting; backup import
+silently ignores `meal_plans` / `meal_items` (and `days_per_month`) in older files.
 
 ## Known limitations
 
