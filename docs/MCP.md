@@ -46,7 +46,7 @@ account. The key is in the URL because custom connectors cannot send custom head
 ### Claude Code
 
 ```bash
-claude mcp add --transport http budget "https://<project-ref>.supabase.co/functions/v1/budget-mcp?key=<token>"
+claude mcp add --transport http budget "https://sygxozspiszqfawkmpzx.supabase.co/functions/v1/budget-mcp?key=<token>"
 ```
 
 Or keep the token out of the URL with a header (any `bgt_` token is accepted as a bearer token):
@@ -144,9 +144,17 @@ With the Supabase CLI:
 supabase functions deploy budget-mcp --no-verify-jwt   # verify_jwt=false is also in supabase/config.toml
 ```
 
-With the Supabase MCP `deploy_edge_function` tool, use name `budget-mcp`, entrypoint `index.ts`,
-`verify_jwt: false`, and upload the files listed above. Name the shared module
-`../_shared/domain.ts`, matching the relative import.
+With the Supabase MCP `deploy_edge_function` tool (how the live function is deployed today),
+upload a one-line shim as `index.ts` (name `budget-mcp`, `verify_jwt: false`) that imports
+this exact source from GitHub, pinned to a commit so the deployed code is immutable and
+matches what was reviewed:
+
+```ts
+import "https://raw.githubusercontent.com/cev64/budgetapp/<commit-sha>/supabase/functions/budget-mcp/index.ts";
+```
+
+To ship a change: push it, then redeploy the shim with the new commit SHA. Do not point the
+shim at a branch name.
 
 No extra secrets are needed. `SUPABASE_URL` and the secret / service-role key are injected
 automatically. The `mcp_tokens` table comes from `supabase/migrations/20261003000000_mcp_tokens.sql`.
@@ -154,7 +162,7 @@ automatically. The `mcp_tokens` table comes from `supabase/migrations/2026100300
 Smoke test after deploying (with a real token):
 
 ```bash
-curl -s -X POST "https://<project-ref>.supabase.co/functions/v1/budget-mcp?key=<token>" \
+curl -s -X POST "https://sygxozspiszqfawkmpzx.supabase.co/functions/v1/budget-mcp?key=<token>" \
   -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_budget_overview","arguments":{}}}'
 ```
