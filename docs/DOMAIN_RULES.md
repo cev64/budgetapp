@@ -128,6 +128,30 @@ Balances are signed: credit-card debt is entered as a negative number.
 
 Reference: Net worth 22,560, Super liquid 6,748, Net reconciliations −5.
 
+## 5b. Net worth history
+
+Table `net_worth_snapshots`, one row per user per **America/New_York calendar day**
+(key `user_id, taken_on`), holding `net_worth`, `super_liquid`, `reconciliations` and an
+`accounts` JSON array (`id, name, group, liquid, balance`) exactly as computed by §5.
+
+- The math is done **server-side** by `public.compute_net_worth(user)` (SQL port of §5, verified
+  against `docs/fixtures/expected.json`). Clients never compute or write snapshot values themselves.
+- **Nightly**: pg_cron job `net-worth-daily` snapshots every user with accounts (source `auto`).
+- **On change**: after any write that can change net worth (accounts, ledger_entries, or budgets of a
+  category linked to an account), clients call RPC `take_net_worth_snapshot()` (debounced ~2s; Android
+  after the push succeeds), which upserts today's row (source `manual`). Today's row therefore always
+  reflects the latest balances; earlier days are frozen.
+- History is never back-filled: the series starts on the first snapshot.
+
+Derived values for display:
+
+```
+changeOver(period) = latest.net_worth − (snapshot on or before (latest.taken_on − period)).net_worth
+                     (if no snapshot that old exists, use the oldest snapshot and label it "since <date>")
+periods: 1M = 30 days, 3M = 91, 6M = 182, 1Y = 365, All = since first snapshot
+perAccountSeries(id) = [(taken_on, accounts[id].balance)] for snapshots containing that account id
+```
+
 ## 6. Creating a month
 
 "New month" for (Y, M):

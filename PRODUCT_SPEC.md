@@ -27,7 +27,7 @@ on web, plus keyboard shortcut `N`).
 
 ### Home (dashboard for the current month; falls back to the latest month)
 - Hero: **Leftover this month**, actual vs expected, with a stacked progress bar (spent / saved / left).
-- Tiles: Income (actual / expected), Expenses (actual / expected), Saved (actual / expected), Net worth.
+- Tiles: Income (actual / expected), Expenses (actual / expected), Saved (actual / expected), Net worth (with 30-day change and a tiny sparkline).
 - "Budgets" list: every expense category with a progress bar (actual / expected) and remaining amount.
 - Recent transactions (last 8) across categories, tap to edit.
 - Banner when the current calendar month doesn't exist yet: "Start October" button.
@@ -49,7 +49,10 @@ on web, plus keyboard shortcut `N`).
 - Months list with closed/open status and each month's leftover.
 
 ### Net worth
-- Net worth total, Super liquid assets, Net reconciliations.
+- Net worth total, Super liquid assets, Net reconciliations, each with change vs 30 days ago.
+- **History chart** (DOMAIN_RULES §5b): line/area chart of net worth over time with a segmented range
+  1M · 3M · 6M · 1Y · All; scrub/hover shows date + value; change for the selected range (green/red).
+  Toggle to overlay Super liquid. Tapping an account shows its own balance history (sparkline/chart).
 - Accounts grouped (Cash, Investments, Assets, Debts); edit balance inline; linked accounts
   (401k, HSA) show "auto · base + contributions" and are not directly editable (edit base instead).
 - Ledger (IOUs): name, amount (+ owed to me / − I owe), settle toggle, add/edit/delete.

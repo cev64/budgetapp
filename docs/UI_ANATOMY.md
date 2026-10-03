@@ -80,7 +80,13 @@ don't exist are empty): bar = expenses actual (projected), thin marker line = ex
 months drawn with 45% opacity.
 
 ## Net worth
-Hero: Net worth. Tiles: Super liquid, Investments, Net reconciliations. Accounts card grouped
+Hero: Net worth with change for the selected range (`+$1,240 · 3M` in `good`/`bad`). Under it the
+**history chart**: 180px tall (240 expanded), smooth area line in `accent` with a 12% accent fill fading
+to 0, no gridlines except a faint baseline, first/last date labels in micro-label style, a scrub
+cursor (vertical `line-2` rule + dot + glass tooltip). Segmented range control 1M·3M·6M·1Y·All
+(gliding pill) above it. Fewer than 2 points: show the value and "History starts today, a point is
+saved every day."
+ Tiles: Super liquid, Investments, Net reconciliations. Accounts card grouped
 (micro-label per group); row: name, balance (tap to edit inline); linked accounts show an "auto" pill.
 Ledger card: name, amount (green if owed to me, red if I owe), settle checkbox (settled rows fade to .5 and strike through).
 
