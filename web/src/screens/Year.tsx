@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useWidth } from '../ui/hooks';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { ChartColumn, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
+import { ChartColumn, ChevronDown, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
 import { Page } from '../app/Shell';
 import { useData } from '../app/session';
 import { Num } from '../ui/Num';
@@ -134,6 +134,9 @@ function VsPlanHero({ summary, money }: { summary: YearSummary; money: MoneyForm
   const v = summary.leftoverVsPlan;
   const tone = diffTone('leftover', v);
   const pct = summary.progress;
+  // Closed by default and not remembered between visits (UI_ANATOMY "Year").
+  const [open, setOpen] = useState(false);
+  const listId = useId();
   return (
     <section className="card hero vs-plan" aria-label={`Leftover vs plan ${summary.year}`}>
       <div className="micro">Leftover vs plan · {summary.year}</div>
@@ -153,15 +156,32 @@ function VsPlanHero({ summary, money }: { summary: YearSummary; money: MoneyForm
           <span className="vs-plan-pct">{formatPercent(pct)}</span>
         </div>
       )}
-      <div className="vs-plan-chips" role="list" aria-label="Per month vs plan">
-        {summary.monthsVsPlan.map((m) => {
-          const t = diffTone('leftover', m.vsPlan);
-          return (
-            <span key={m.month.month} role="listitem" className={`vp-chip${m.closed ? ` tone-${t}` : ' open'}`}>
-              {monthShort(m.month.month)} {m.closed ? signed(m.vsPlan) : '· open'}
-            </span>
-          );
-        })}
+      <div className={`vs-plan-months${open ? ' open' : ''}`}>
+        <button type="button" className="vs-plan-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((o) => !o)}>
+          <span className="micro">By month</span>
+          <ChevronDown size={18} strokeWidth={1.75} className="chev" aria-hidden="true" />
+        </button>
+        <div className="expand">
+          <div>
+            <ul id={listId} className="content vs-plan-list" aria-label="Leftover vs plan by month" inert={!open}>
+              {summary.monthsVsPlan.map((m) => {
+                const t = diffTone('leftover', m.vsPlan);
+                return (
+                  <li key={m.month.month} className="vs-plan-row">
+                    <span className="vs-plan-month">{monthName(m.month.month)}</span>
+                    <span className="vs-plan-status">
+                      {m.closed ? <Lock size={14} strokeWidth={1.75} aria-hidden="true" /> : <LockOpen size={14} strokeWidth={1.75} aria-hidden="true" />}
+                      {m.closed ? 'closed' : 'open'}
+                    </span>
+                    {m.closed
+                      ? <span className={`vs-plan-amount tone-${t === 'neutral' ? 'ink' : t}`}>{signed(m.vsPlan)}</span>
+                      : <span className="vs-plan-amount faint" aria-label="no difference yet">—</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
   );
