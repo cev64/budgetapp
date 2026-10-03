@@ -1,5 +1,5 @@
 {
   "$comment": "Public client config. The publishable key is safe to ship in apps; row-level security protects the data. Never put a secret / service_role key here.",
-  "url": "",
-  "publishableKey": ""
+  "url": "https://sygxozspiszqfawkmpzx.supabase.co",
+  "publishableKey": "sb_publishable_kGqfG5NhqqT1pzWU429lUw_myf6Y4qr"
 }
