@@ -185,7 +185,8 @@ fun MonthScreen(main: MainViewModel) {
             Row(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).padding(horizontal = layout.gutter)) {
                 Column(
                     Modifier
-                        .weight(if (layout == com.personal.budget.ui.screens.WindowLayout.Expanded) 1.25f else 1.1f)
+                        // List gets ~60 % so names + three money columns fit; the detail pane is the narrower one.
+                        .weight(0.6f)
                         .fillMaxHeight()
                         .verticalScroll(listScroll)
                         .padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
@@ -195,7 +196,7 @@ fun MonthScreen(main: MainViewModel) {
                 Spacer(Modifier.width(14.dp))
                 Column(
                     Modifier
-                        .weight(1f)
+                        .weight(0.4f)
                         .fillMaxHeight()
                         .verticalScroll(detailScroll)
                         .padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
@@ -317,7 +318,8 @@ private fun BudgetTab(ui: MonthUi, vm: MonthViewModel, selectedId: String?) {
     val layout = LocalWindowLayout.current
     // Compact (cover screen): two-line rows instead of three columns, never smaller text.
     val compact = layout.isCompact
-    val colW = 96.dp
+    // 84dp holds e.g. "−$1,234.56" at the 16sp table-number style (tabular figures).
+    val colW = 84.dp
     if (ui.summary.lines.isEmpty()) {
         BudgetCard { EmptyState("Set your first category to start this month’s budget.") }
         return
@@ -384,7 +386,7 @@ private fun CategoryRow(line: CategoryLine, compact: Boolean, colW: Dp, selected
                     line.category.name,
                     style = Budget.type.body,
                     color = c.ink,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
@@ -454,7 +456,7 @@ private fun NumbersRow(label: String, expected: Double, actual: Double, kind: Ca
     val style = if (bold) num.copy(fontWeight = FontWeight.SemiBold) else num
     Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = if (bold) Budget.type.cardTitle else Budget.type.body, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, style = if (bold) Budget.type.cardTitle else Budget.type.body, color = c.ink, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (compact) {
                 AnimatedMoney(actual, style, if (animate && actual < 0) c.bad else c.ink, textAlign = TextAlign.End)
             } else {

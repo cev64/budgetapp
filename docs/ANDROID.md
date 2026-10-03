@@ -315,9 +315,11 @@ detail, and process death restores it too.
 
 - Glass bars are translucent but not blurred (Compose has no backdrop blur); this is the documented
   Android fallback.
-- The live end-to-end path (sign-in → push → RPC → pull) was verified against MockWebServer and the live
-  project's endpoints/headers, but not with a real signed-in account (email confirmation + sign-up
-  rate limits blocked creating a test user).
+- Live end-to-end sync is covered by `app/src/test/.../data/LiveSyncTest.kt`, which is skipped unless
+  `BUDGET_LIVE_EMAIL` / `BUDGET_LIVE_PASSWORD` are set (never commit them). It signs in, pulls, pushes a
+  transaction, edits a balance (checks the snapshot RPC moved net worth), pulls a row written over REST,
+  tombstones, and restores everything:
+  `BUDGET_LIVE_EMAIL=… BUDGET_LIVE_PASSWORD=… ./gradlew testDebugUnitTest --tests '*LiveSyncTest*' --rerun`.
 - No realtime subscription on Android (sync is event + schedule driven, per SYNC.md).
 - Widget: Glance can't use the bundled fonts, so it uses the system sans-serif.
 - No emulator screenshots: visuals were reviewed through Robolectric renders.

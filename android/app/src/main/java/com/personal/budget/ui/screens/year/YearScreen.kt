@@ -130,20 +130,20 @@ fun YearScreen(main: MainViewModel, onOpenMonth: (MonthKey) -> Unit) {
             ) {
                 Highlight(summary)
                 ChartCard(summary, chartHeight = 190.dp)
-                Tables(summary, colW = 96.dp)
+                Tables(summary, colW = 84.dp)
                 MonthsCard(summary, onOpenMonth)
             }
         } else {
             Row(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).padding(horizontal = layout.gutter)) {
                 Column(
-                    Modifier.weight(1.1f).fillMaxHeight().verticalScroll(leftScroll).padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
+                    Modifier.weight(0.6f).fillMaxHeight().verticalScroll(leftScroll).padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Tables(summary, colW = 96.dp)
+                    Tables(summary, colW = 84.dp)
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().verticalScroll(rightScroll).padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
+                    Modifier.weight(0.4f).fillMaxHeight().verticalScroll(rightScroll).padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Highlight(summary)
@@ -161,9 +161,19 @@ private fun Highlight(y: YearSummary) {
     BudgetCard(padding = PaddingValues(16.dp)) {
         MicroLabel("Annualized savings · ${y.monthCount} month${if (y.monthCount == 1) "" else "s"}")
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            HighlightColumn("Expected", y.expected, Modifier.weight(1f), c.ink2)
-            HighlightColumn("Actual", y.actual, Modifier.weight(1f), c.ink)
+        // Side by side when there's room for two 32sp totals; otherwise stacked (never shrunk).
+        androidx.compose.foundation.layout.BoxWithConstraints {
+            if (maxWidth >= 400.dp) {
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    HighlightColumn("Expected", y.expected, Modifier.weight(1f), c.ink2)
+                    HighlightColumn("Actual", y.actual, Modifier.weight(1f), c.ink)
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    HighlightColumn("Actual", y.actual, Modifier.fillMaxWidth(), c.ink)
+                    HighlightColumn("Expected", y.expected, Modifier.fillMaxWidth(), c.ink2)
+                }
+            }
         }
     }
 }
@@ -234,7 +244,7 @@ private fun ValueRow(label: String, expected: Double, actual: Double, kind: Cate
     val d = actual - expected
     Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = if (bold) Budget.type.cardTitle else Budget.type.body, color = c.ink, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, style = if (bold) Budget.type.cardTitle else Budget.type.body, color = c.ink, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (compact) {
                 AnimatedMoney(actual, style, c.ink, textAlign = TextAlign.End)
             } else {

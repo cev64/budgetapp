@@ -315,7 +315,7 @@ private fun BudgetsCard(state: HomeUi, onOpen: () -> Unit) {
                     CategoryMark(paletteFor(line.category, state.snapshot.book), size = 14.dp)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(line.category.name, style = Budget.type.body, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(line.category.name, style = Budget.type.body, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text("${Money.format(actual)} of ${Money.format(line.expected)}", style = Budget.type.small, color = c.ink3, maxLines = 1)
                     }
                     if (remaining < -0.005) {
