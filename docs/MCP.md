@@ -164,8 +164,8 @@ To ship a change: push it, then redeploy the shim with the new commit SHA. Do no
 shim at a branch name.
 
 No extra secrets are needed. `SUPABASE_URL` and the secret / service-role key are injected
-automatically. The `mcp_tokens` table comes from `supabase/migrations/20261003000000_mcp_tokens.sql`.
-Net worth history needs `supabase/migrations/20261003010000_net_worth_history.sql`, which creates
+automatically. The `mcp_tokens` table comes from `supabase/migrations/20261003002810_mcp_tokens.sql`.
+Net worth history needs `supabase/migrations/20261003004216_net_worth_history.sql`, which creates
 `net_worth_snapshots` and `write_net_worth_snapshot()`. That function is executable by
 service_role and revoked from anon and authenticated.
 
