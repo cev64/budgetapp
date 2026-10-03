@@ -355,13 +355,31 @@ export interface YearCategoryRow {
   difference: number;
 }
 
+export interface YearMonthRow {
+  year: number;
+  month: number;
+  name: string;
+  closed: boolean;
+  leftover_expected: number;
+  /** §2 leftover with actuals (what happened so far this month) */
+  leftover_actual: number;
+  /** §4b: leftover with projected values (open month = its plan) */
+  projected_leftover: number;
+  /** §4b: projected_leftover − leftover_expected; always 0 for open months */
+  vs_plan: number;
+}
+
 export interface YearView {
   year: number;
   month_count: number;
-  months: { year: number; month: number; name: string; closed: boolean; leftover_expected: number; leftover_actual: number }[];
+  months: YearMonthRow[];
   categories: YearCategoryRow[];
   expected: YearColumn;
   actual: YearColumn;
+  /** §4b headline: actual (projected) leftover − expected leftover; equals Σ months[].vs_plan */
+  leftover_vs_plan: number;
+  /** actual.leftover / expected.leftover, only when expected leftover > 0 */
+  progress: number | null;
 }
 
 export function yearView(s: Snapshot, y: number, ix: Index = buildIndex(s)): YearView | null {
@@ -396,8 +414,9 @@ export function yearView(s: Snapshot, y: number, ix: Index = buildIndex(s)): Yea
       actual: actual.categories[c.name],
       difference: r4(actual.categories[c.name] - expected.categories[c.name]),
     }));
-  const months = ms.map((m) => {
+  const months = ms.map((m): YearMonthRow => {
     const v = monthView(s, m.year, m.month, ix);
+    const projected = projectedLeftover(ix, m.year, m.month);
     return {
       year: m.year,
       month: m.month,
@@ -405,9 +424,39 @@ export function yearView(s: Snapshot, y: number, ix: Index = buildIndex(s)): Yea
       closed: m.closed,
       leftover_expected: v.expected.leftover,
       leftover_actual: v.actual.leftover,
+      projected_leftover: projected,
+      vs_plan: r4(projected - v.expected.leftover),
     };
   });
-  return { year: y, month_count: n, months, categories, expected, actual };
+  return {
+    year: y,
+    month_count: n,
+    months,
+    categories,
+    expected,
+    actual,
+    leftover_vs_plan: r4(actual.leftover - expected.leftover),
+    progress: expected.leftover > 0 ? Math.round((actual.leftover / expected.leftover) * 1e6) / 1e6 : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// §4b Leftover vs plan
+// ---------------------------------------------------------------------------
+
+/** §2 leftover computed with projected(m, c) for every category. */
+export function projectedLeftover(ix: Index, y: number, m: number): number {
+  return totalsOf(ix.cats.values(), (c) => projectedOf(ix, y, m, c.id)).leftover;
+}
+
+/** projectedLeftover(m) − expectedLeftover(m); 0 for open months. */
+export function monthVsPlan(ix: Index, y: number, m: number): number {
+  return r4(projectedLeftover(ix, y, m) - totalsOf(ix.cats.values(), (c) => expectedOf(ix, y, m, c.id)).leftover);
+}
+
+/** "ahead of plan" (> 0), "behind plan" (< 0), "on plan" (|x| < 0.005). */
+export function planStatus(x: number): "ahead of plan" | "behind plan" | "on plan" {
+  return Math.abs(x) < 0.005 ? "on plan" : x > 0 ? "ahead of plan" : "behind plan";
 }
 
 // ---------------------------------------------------------------------------
@@ -773,6 +822,13 @@ export function formatMoney(x: number | null | undefined): string {
     body = (cents / 100).toFixed(2);
   }
   return `${v < 0 ? "\u2212" : ""}$${body}`;
+}
+
+/** Money with the sign always shown: `+$1,380`, `\u2212$45`, `$0`. */
+export function formatSignedMoney(x: number): string {
+  const body = formatMoney(Math.abs(x));
+  if (body === "$0") return "$0";
+  return `${x > 0 ? "+" : "\u2212"}${body}`;
 }
 
 export function formatPct(x: number): string {
