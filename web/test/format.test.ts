@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  amountInputText, diffTone, formatMoney, formatPercent, formatSignedMoney, monthClosedMessage, overBudgetMessage, parseAmount, savedMessage,
+  amountInputText, diffTone, formatMoney, formatPercent, formatSignedMoney, monthClosedMessage, overBudgetMessage, parseAmount, savedMessage, vsPlanCaption,
 } from '../src/domain/format';
 
 describe('formatMoney (DOMAIN_RULES §8)', () => {
@@ -100,5 +100,16 @@ describe('voice strings (UI_ANATOMY Brand v2)', () => {
     expect(overBudgetMessage('Food', 42)).toBe('Food is $42 over budget. Review your recent expenses.');
     expect(overBudgetMessage('Rent', 1022.5)).toBe('Rent is $1,023 over budget. Review your recent expenses.');
     expect(monthClosedMessage('September')).toBe('September is closed. Your totals are saved.');
+  });
+});
+
+describe('vs plan display (DOMAIN_RULES §4b)', () => {
+  it('sign always shown, caption by sign', () => {
+    expect(formatSignedMoney(1380)).toBe('+$1,380');
+    expect(formatSignedMoney(-45)).toBe('\u2212$45');
+    expect(formatSignedMoney(0.004)).toBe('$0');
+    expect(vsPlanCaption(261.75)).toBe('ahead of plan');
+    expect(vsPlanCaption(-45)).toBe('behind plan');
+    expect(vsPlanCaption(-0.004)).toBe('on plan');
   });
 });

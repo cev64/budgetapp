@@ -65,7 +65,8 @@ web/
     config.ts                Supabase URL/key resolution, app version
     domain/                  pure TS, no React, no I/O
       types.ts, tables.ts    row types, table keys, on_conflict targets, column lists, normalisation
-      calc.ts                DOMAIN_RULES §1–§4: per-category values, month totals, projection, year summary
+      calc.ts                DOMAIN_RULES §1–§4b: per-category values, month totals, projection, year summary,
+                             leftover vs plan (projectedLeftover, monthVsPlan)
       networth.ts            §5 net worth, super liquid, reconciliations, linked accounts
       history.ts             §5b net worth history: changeOver, ranges (1M/3M/6M/1Y/All), series, per-account
       categoryStyle.ts       category colour + symbol from design/tokens.json (palette + assignment)

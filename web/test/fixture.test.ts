@@ -108,6 +108,40 @@ describe('years (DOMAIN_RULES §3–§4)', () => {
   });
 });
 
+describe('leftover vs plan (DOMAIN_RULES §4b)', () => {
+  it('2025: +261.75 = Nov +319.50 + Dec −57.75', () => {
+    const y = calc.yearSummary(2025)!;
+    expect(y.expected.leftover).toBeCloseTo(2220, 6);
+    expect(y.actual.leftover).toBeCloseTo(2481.75, 6);
+    expect(y.leftoverVsPlan).toBeCloseTo(261.75, 6);
+    expect(calc.monthVsPlan({ year: 2025, month: 11 })).toBeCloseTo(319.5, 6);
+    expect(calc.monthVsPlan({ year: 2025, month: 12 })).toBeCloseTo(-57.75, 6);
+    expect(y.monthsVsPlan.map((m) => [m.month.month, m.closed, Math.round(m.vsPlan * 100) / 100])).toEqual([[11, true, 319.5], [12, true, -57.75]]);
+    expect(y.progress).toBeCloseTo(2481.75 / 2220, 9);
+  });
+
+  it('2026: Jan open, so 0 vs plan', () => {
+    const y = calc.yearSummary(2026)!;
+    expect(y.leftoverVsPlan).toBe(0);
+    expect(y.monthsVsPlan).toHaveLength(1);
+    expect(y.monthsVsPlan[0]).toMatchObject({ closed: false, vsPlan: 0 });
+    expect(calc.projectedLeftover({ year: 2026, month: 1 })).toBeCloseTo(1205, 6);
+  });
+
+  it('Σ monthVsPlan == leftoverVsPlan, also after closing a month', () => {
+    const closedAll = createCalc({ ...ds, months: ds.months.map((m) => ({ ...m, closed: true })) });
+    for (const c of [calc, closedAll]) {
+      for (const year of [2025, 2026]) {
+        const y = c.yearSummary(year)!;
+        const sum = y.months.reduce((s, m) => s + c.monthVsPlan(m), 0);
+        expect(sum).toBeCloseTo(y.leftoverVsPlan, 9);
+      }
+    }
+    // Jan closed: projected leftover 2100 − (1250+120+350+95) − (500+350+0) = −565 (blank actuals fall back to plan).
+    expect(closedAll.yearSummary(2026)!.leftoverVsPlan).toBeCloseTo(-565 - 1205, 6);
+  });
+});
+
 describe('net worth (DOMAIN_RULES §5)', () => {
   const nw = computeNetWorth({ accounts: ds.accounts, categories: ds.categories, budgets: ds.budgets, ledger: ds.ledger_entries });
   const want = expected.net_worth;

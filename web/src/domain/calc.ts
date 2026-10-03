@@ -72,10 +72,26 @@ export interface YearColumn extends Totals {
   pctGross: number;
 }
 
+/** DOMAIN_RULES §4b: one month's contribution to the year's leftover vs plan. */
+export interface MonthVsPlan {
+  month: Month;
+  closed: boolean;
+  projectedLeftover: number;
+  plannedLeftover: number;
+  /** projectedLeftover − plannedLeftover; always 0 for open months. */
+  vsPlan: number;
+}
+
 export interface YearSummary {
   year: number;
   months: Month[];
   n: number;
+  /** §4b headline: yearActual.leftover − yearExpected.leftover. */
+  leftoverVsPlan: number;
+  /** yearActual.leftover / yearExpected.leftover, only when the planned leftover is > 0. */
+  progress: number | null;
+  /** Per month, oldest first; Σ vsPlan = leftoverVsPlan. */
+  monthsVsPlan: MonthVsPlan[];
   lines: YearLine[];
   expected: YearColumn;
   actual: YearColumn;
@@ -98,6 +114,10 @@ export interface Calc {
   actual(ym: YM, categoryId: string): number | null;
   projected(ym: YM, categoryId: string): number;
   monthSummary(ym: YM): MonthSummary;
+  /** §4b: §2 leftover with projected(m, c) for every category. */
+  projectedLeftover(ym: YM): number;
+  /** §4b: projectedLeftover(m) − expected leftover(m). */
+  monthVsPlan(ym: YM): number;
   yearSummary(year: number): YearSummary | null;
 }
 
@@ -176,6 +196,10 @@ export function createCalc(ds: Dataset): Calc {
     };
   }
 
+  const projectedLeftover = (ym: YM) => totalsFor(categories, (c) => projected(ym, c.id)).leftover;
+  const plannedLeftover = (ym: YM) => totalsFor(categories, (c) => expected(ym, c.id)).leftover;
+  const monthVsPlan = (ym: YM) => projectedLeftover(ym) - plannedLeftover(ym);
+
   function yearSummary(year: number): YearSummary | null {
     const inYear = months.filter((m) => m.year === year);
     const n = inYear.length;
@@ -209,7 +233,19 @@ export function createCalc(ds: Dataset): Calc {
         const a = perActual.get(c.id) ?? 0;
         return { category: c, expected: e, actual: a, difference: a - e };
       });
-    return { year, months: inYear, n, lines, expected: column(perExpected), actual: column(perActual) };
+    const exp = column(perExpected);
+    const act = column(perActual);
+    const monthsVsPlan = inYear.map((m): MonthVsPlan => {
+      const p = projectedLeftover(m);
+      const e = plannedLeftover(m);
+      return { month: m, closed: m.closed, projectedLeftover: p, plannedLeftover: e, vsPlan: p - e };
+    });
+    return {
+      year, months: inYear, n, lines, expected: exp, actual: act,
+      leftoverVsPlan: act.leftover - exp.leftover,
+      progress: exp.leftover > 0 ? act.leftover / exp.leftover : null,
+      monthsVsPlan,
+    };
   }
 
   return {
@@ -227,6 +263,8 @@ export function createCalc(ds: Dataset): Calc {
     actual,
     projected,
     monthSummary,
+    projectedLeftover,
+    monthVsPlan,
     yearSummary,
   };
 }
