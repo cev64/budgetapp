@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useWidth } from '../ui/hooks';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
-import { ChartColumn, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
+import { ChartColumn, ChevronDown, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
 import { Page } from '../app/Shell';
 import { useData } from '../app/session';
 import { Num } from '../ui/Num';
 import { CardHead, CategoryDot, Diff, Empty, useMoney, type MoneyFormat } from '../ui/bits';
 import { totalsFor, KIND_LABEL, KIND_ORDER, type Calc, type YearSummary } from '../domain/calc';
 import { currentYm, monthName, monthShort, ymKey } from '../domain/dates';
-import { formatPercent } from '../domain/format';
+import { diffTone, formatPercent, formatSignedMoney, vsPlanCaption } from '../domain/format';
 import type { CategoryKind } from '../domain/types';
 
 export function YearScreen() {
@@ -24,6 +24,7 @@ export function YearScreen() {
 
   return (
     <Page label="Year" title={String(year)}>
+      {summary && <VsPlanHero summary={summary} money={money} />}
       <div className="year-head">
         <div className="month-nav">
           <button type="button" className="icon-btn" aria-label="Previous year" onClick={() => navigate(`/year/${year - 1}`)}>
@@ -51,14 +52,6 @@ export function YearScreen() {
         </div>
       ) : (
         <div className="year-grid">
-          <div className="year-side">
-            <Highlight summary={summary} money={money} />
-            <section className="card chart-card">
-              <CardHead title="Spending by month" />
-              <YearChart calc={calc} year={year} money={money} />
-            </section>
-            <MonthsList calc={calc} summary={summary} money={money} />
-          </div>
           <div className="year-tables">
             {KIND_ORDER.map((kind) => (
               <GroupTable key={kind} kind={kind} summary={summary} money={money} />
@@ -69,6 +62,14 @@ export function YearScreen() {
               <TotalRow label="Saved (incl. match)" e={summary.expected.saved} a={summary.actual.saved} kind="savings" money={money} />
               <TotalRow label="Leftover" e={summary.expected.leftover} a={summary.actual.leftover} kind="leftover" money={money} strong />
             </section>
+            <SavingsRate summary={summary} money={money} />
+          </div>
+          <div className="year-side">
+            <section className="card chart-card">
+              <CardHead title="Spending by month" />
+              <YearChart calc={calc} year={year} money={money} />
+            </section>
+            <MonthsList calc={calc} summary={summary} money={money} />
           </div>
         </div>
       )}
@@ -125,19 +126,82 @@ function GroupTable({ kind, summary, money }: { kind: CategoryKind; summary: Yea
   );
 }
 
+/** §4b headline: how far the projected leftover is ahead of / behind the plan. */
+function VsPlanHero({ summary, money }: { summary: YearSummary; money: MoneyFormat }) {
+  const { calc } = useData();
+  const currency = calc.settings.currency;
+  const signed = (v: number | null) => (v == null ? '' : formatSignedMoney(v, currency));
+  const v = summary.leftoverVsPlan;
+  const tone = diffTone('leftover', v);
+  const pct = summary.progress;
+  // Closed by default and not remembered between visits (UI_ANATOMY "Year").
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  return (
+    <section className="card hero vs-plan" aria-label={`Leftover vs plan ${summary.year}`}>
+      <div className="micro">Leftover vs plan · {summary.year}</div>
+      <div className="vs-plan-head">
+        <span className={`hero-num ${tone === 'neutral' ? '' : `tone-${tone}`}`}><Num value={v} format={signed} bump /></span>
+        <span className="vs-plan-caption">{vsPlanCaption(v)}</span>
+      </div>
+      <div className="vs-plan-rows">
+        <span className="muted">Projected</span><span className="num-strong"><Num value={summary.actual.leftover} format={money} /></span>
+        <span className="muted">Planned</span><span className="num-strong"><Num value={summary.expected.leftover} format={money} /></span>
+      </div>
+      {pct != null && (
+        <div className="vs-plan-bar">
+          <div className="bar" aria-hidden="true">
+            <span className={`bar-fill${pct >= 1 ? ' good' : ''}`} style={{ width: `${Math.min(1, Math.max(0, pct)) * 100}%` }} />
+          </div>
+          <span className="vs-plan-pct">{formatPercent(pct)}</span>
+        </div>
+      )}
+      <div className={`vs-plan-months${open ? ' open' : ''}`}>
+        <button type="button" className="vs-plan-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen((o) => !o)}>
+          <span className="micro">By month</span>
+          <ChevronDown size={18} strokeWidth={1.75} className="chev" aria-hidden="true" />
+        </button>
+        <div className="expand">
+          <div>
+            <ul id={listId} className="content vs-plan-list" aria-label="Leftover vs plan by month" inert={!open}>
+              {summary.monthsVsPlan.map((m) => {
+                const t = diffTone('leftover', m.vsPlan);
+                return (
+                  <li key={m.month.month} className="vs-plan-row">
+                    <span className="vs-plan-month">{monthName(m.month.month)}</span>
+                    <span className="vs-plan-status">
+                      {m.closed ? <Lock size={14} strokeWidth={1.75} aria-hidden="true" /> : <LockOpen size={14} strokeWidth={1.75} aria-hidden="true" />}
+                      {m.closed ? 'closed' : 'open'}
+                    </span>
+                    {m.closed
+                      ? <span className={`vs-plan-amount tone-${t === 'neutral' ? 'ink' : t}`}>{signed(m.vsPlan)}</span>
+                      : <span className="vs-plan-amount faint" aria-label="no difference yet">—</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** Annualized savings and % of net / gross income, both columns (DOMAIN_RULES §4). */
-function Highlight({ summary, money }: { summary: YearSummary; money: MoneyFormat }) {
+function SavingsRate({ summary, money }: { summary: YearSummary; money: MoneyFormat }) {
   const pct = (v: number | null) => formatPercent(v);
   return (
-    <section className="card highlight">
-      <div className="micro">Annualized savings · {summary.n} {summary.n === 1 ? 'month' : 'months'}</div>
+    <section className="card savings-rate">
+      <CardHead title="Savings rate">
+        <span className="muted small">{summary.n} {summary.n === 1 ? 'month' : 'months'}</span>
+      </CardHead>
       <div className="highlight-grid">
         <div />
         <div className="micro">Expected</div>
         <div className="micro">Actual</div>
-        <div className="hl-label">Per year</div>
-        <div className="hl-big"><Num value={summary.expected.annualizedSavings} format={money} /></div>
-        <div className="hl-big accent"><Num value={summary.actual.annualizedSavings} format={money} bump /></div>
+        <div className="hl-label">Annualized savings</div>
+        <div><Num value={summary.expected.annualizedSavings} format={money} /></div>
+        <div><Num value={summary.actual.annualizedSavings} format={money} /></div>
         <div className="hl-label">% of net income</div>
         <div><Num value={summary.expected.pctNet} format={pct} /></div>
         <div><Num value={summary.actual.pctNet} format={pct} /></div>

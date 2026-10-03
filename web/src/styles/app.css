@@ -395,9 +395,33 @@ a.link { text-decoration: none }
 .year-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start }
 .year-side, .year-tables { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px }
 .shell.expanded .year-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) }
-.shell.expanded .year-tables { order: -1 }
-.highlight { background: linear-gradient(160deg, var(--accent-soft), var(--card) 70%) }
-.highlight-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 18px; align-items: baseline; margin-top: 10px }
+.vs-plan { display: grid; gap: 8px }
+.vs-plan-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px }
+.vs-plan-head .hero-num { margin: 0 }
+.vs-plan-caption { color: var(--ink-2) }
+.vs-plan-rows { display: grid; grid-template-columns: auto minmax(0, max-content); justify-content: space-between; gap: 2px 16px; max-width: 360px }
+.vs-plan-rows .num-strong { text-align: right; font-weight: 500 }
+.vs-plan-bar { display: flex; align-items: center; gap: 10px }
+.vs-plan-bar .bar { flex: 1 1 auto; margin: 0 }
+.bar-fill.good { background: var(--good) }
+.vs-plan-pct { font-size: 14px; line-height: 20px; color: var(--ink-2); min-width: 52px; text-align: right }
+.vs-plan-months { border-top: 1px solid var(--line); margin-top: 4px }
+.vs-plan-toggle {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: var(--hit);
+  padding: 0; border: 0; background: none; color: var(--ink-3); cursor: pointer; border-radius: 8px;
+  transition: color .2s var(--ease), transform .18s var(--ease);
+}
+@media (hover: hover) { .vs-plan-toggle:hover { color: var(--ink) } }
+.vs-plan-toggle:active { transform: scale(.99) }
+.vs-plan-toggle .micro { color: inherit }
+.vs-plan-list { list-style: none; margin: 0; padding: 0 0 2px }
+.vs-plan-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(88px, auto); gap: 12px; align-items: center; min-height: 40px }
+.vs-plan-row + .vs-plan-row { border-top: 1px solid var(--line) }
+.vs-plan-month { font-weight: 500 }
+.vs-plan-status { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; line-height: 20px; color: var(--ink-2) }
+.vs-plan-amount { text-align: right; font-weight: 500; white-space: nowrap }
+.tone-ink { color: var(--ink) }
+.highlight-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 18px; align-items: baseline }
 .highlight-grid > :nth-child(3n+2), .highlight-grid > :nth-child(3n) { text-align: right; white-space: nowrap }
 .hl-label { color: var(--ink-2); font-size: 14px; line-height: 20px }
 .hl-big { font: 600 24px/30px var(--body); letter-spacing: -.3px }

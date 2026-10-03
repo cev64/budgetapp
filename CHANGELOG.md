@@ -1,6 +1,14 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.1.0
+
+### Changed
+- Year page: the headline is now **leftover vs plan** (signed, green/red, with projected and planned
+  leftover, a progress bar and a collapsed "By month" dropdown whose months add up to the year figure). Annualized savings moved
+  to a smaller Savings rate card below the table. Same on web and Android; Claude's year summary leads
+  with it too.
+
+## 1.0.0
 
 ### Added
 - Supabase backend: schema with row-level security, sync triggers, realtime, sign-up seeding of the

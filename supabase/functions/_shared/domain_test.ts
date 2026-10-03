@@ -7,6 +7,10 @@ import {
   buildIndex,
   changeOver,
   formatShortDate,
+  formatSignedMoney,
+  monthVsPlan,
+  planStatus,
+  projectedLeftover,
   formatSignedPct,
   historyView,
   type NetWorthSnapshot,
@@ -285,4 +289,49 @@ Deno.test("history display helpers", () => {
   assertEquals(formatSignedPct(0), "0.0%");
   assertEquals(formatShortDate("2026-08-03", 2026), "Aug 3");
   assertEquals(formatShortDate("2025-10-14", 2026), "Oct 14, 2025");
+});
+
+// ---------------------------------------------------------------------------
+// §4b leftover vs plan
+// ---------------------------------------------------------------------------
+
+Deno.test("§4b leftover vs plan: fixture vectors", () => {
+  const ix = buildIndex(snap);
+  const y25 = yearView(snap, 2025, ix)!;
+  assertAlmostEquals(y25.expected.leftover, 2220, 1e-9);
+  assertAlmostEquals(y25.actual.leftover, 2481.75, 1e-9);
+  assertAlmostEquals(y25.leftover_vs_plan, 261.75, 1e-9);
+  assertAlmostEquals(monthVsPlan(ix, 2025, 11), 319.5, 1e-9);
+  assertAlmostEquals(monthVsPlan(ix, 2025, 12), -57.75, 1e-9);
+  assertEquals(y25.months.map((m) => m.vs_plan), [319.5, -57.75]);
+  assertAlmostEquals(projectedLeftover(ix, 2025, 11), 1110 + 319.5, 1e-9);
+  assertAlmostEquals(y25.progress!, 2481.75 / 2220, 1e-6);
+  const y26 = yearView(snap, 2026, ix)!;
+  assertEquals(y26.leftover_vs_plan, 0);
+  assertEquals(y26.months.map((m) => [m.closed, m.vs_plan]), [[false, 0]]); // Jan 2026 open
+  assertEquals(monthVsPlan(ix, 2026, 1), 0);
+});
+
+Deno.test("§4b: Σ monthVsPlan equals leftoverVsPlan (including after closing a month)", () => {
+  const closedJan: Snapshot = { ...snap, months: snap.months.map((m) => ({ ...m, closed: true })) };
+  for (const s of [snap, closedJan]) {
+    const ix = buildIndex(s);
+    for (const y of [2025, 2026]) {
+      const v = yearView(s, y, ix)!;
+      const sum = v.months.reduce((a, m) => a + m.vs_plan, 0);
+      assertAlmostEquals(sum, v.leftover_vs_plan, 1e-9, `${y}`);
+      assertAlmostEquals(v.leftover_vs_plan, v.actual.leftover - v.expected.leftover, 1e-9);
+    }
+  }
+  // Closed Jan 2026: projected leftover 2100 − 1815 − 850 = −565 vs planned 1205.
+  assertEquals(yearView(closedJan, 2026)!.leftover_vs_plan, -1770);
+});
+
+Deno.test("§4b display: signed money and plan status", () => {
+  assertEquals(formatSignedMoney(1380), "+$1,380");
+  assertEquals(formatSignedMoney(-45), "\u2212$45");
+  assertEquals(formatSignedMoney(261.75), "+$261.75");
+  assertEquals(formatSignedMoney(0), "$0");
+  assertEquals(formatSignedMoney(-0.004), "$0");
+  assertEquals([planStatus(1), planStatus(-1), planStatus(0.004)], ["ahead of plan", "behind plan", "on plan"]);
 });

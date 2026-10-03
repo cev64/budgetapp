@@ -3,6 +3,16 @@ package com.personal.budget.ui.screens.year
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.heightIn
+import com.personal.budget.ui.components.BudgetProgress
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.expand
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -104,13 +114,12 @@ fun YearScreen(main: MainViewModel, onOpenMonth: (MonthKey) -> Unit) {
     val s = snapshot ?: return
     val summary = remember(s, year) { s.book.yearSummary(year, s.settings) }
     val leftScroll = rememberScrollState()
-    val rightScroll = rememberScrollState()
 
     ScreenFrame(topBar = {
         GlassTopBar(
             micro = "Year",
             title = year.toString(),
-            scrolled = leftScroll.isScrolled() || rightScroll.isScrolled(),
+            scrolled = leftScroll.isScrolled(),
             actions = {
                 GhostIconButton(Lucide.ChevronLeft, "Previous year", onClick = { vm.setYear(year - 1) })
                 GhostIconButton(Lucide.ChevronRight, "Next year", onClick = { vm.setYear(year + 1) })
@@ -128,42 +137,188 @@ fun YearScreen(main: MainViewModel, onOpenMonth: (MonthKey) -> Unit) {
                 Modifier.fillMaxSize().verticalScroll(leftScroll).padding(padding).padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Highlight(summary)
-                ChartCard(summary, chartHeight = 190.dp)
+                LeftoverVsPlanHero(summary)
                 Tables(summary, colW = 84.dp)
+                SavingsRateCard(summary)
+                ChartCard(summary, chartHeight = 190.dp)
                 MonthsCard(summary, onOpenMonth)
             }
         } else {
-            Row(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).padding(horizontal = layout.gutter)) {
-                Column(
-                    Modifier.weight(0.6f).fillMaxHeight().verticalScroll(leftScroll).padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Tables(summary, colW = 84.dp)
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(
-                    Modifier.weight(0.4f).fillMaxHeight().verticalScroll(rightScroll).padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Highlight(summary)
-                    ChartCard(summary, chartHeight = 260.dp)
-                    MonthsCard(summary, onOpenMonth)
+            // Expanded: the hero spans the full width above the table / chart panes.
+            Column(
+                Modifier.fillMaxSize().verticalScroll(leftScroll).padding(padding).padding(horizontal = layout.gutter, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                LeftoverVsPlanHero(summary)
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column(Modifier.weight(0.6f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Tables(summary, colW = 84.dp)
+                        SavingsRateCard(summary)
+                    }
+                    Column(Modifier.weight(0.4f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ChartCard(summary, chartHeight = 260.dp)
+                        MonthsCard(summary, onOpenMonth)
+                    }
                 }
             }
         }
     }
 }
 
+/** Previews / screenshot tests can render the "By month" list open; the app always starts closed. */
+internal val LocalByMonthInitiallyOpen = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/**
+ * Collapsed "By month" disclosure inside the hero (UI_ANATOMY "Year"): closed by default and not
+ * remembered between visits.
+ * Opens with expandVertically + fade on the spring/ease curves; the chevron rotates 180°.
+ */
 @Composable
-private fun Highlight(y: YearSummary) {
+private fun ByMonthDisclosure(y: YearSummary) {
+    val c = Budget.colors
+    val reduce = com.personal.budget.ui.theme.LocalReduceMotion.current
+    val initiallyOpen = LocalByMonthInitiallyOpen.current
+    // Plain remember: closed again on every visit. Fold/unfold and rotation don't recreate the
+    // activity (configChanges), so it still survives them.
+    var open by androidx.compose.runtime.remember(y.year) { androidx.compose.runtime.mutableStateOf(initiallyOpen) }
+    val rotation by androidx.compose.animation.core.animateFloatAsState(
+        if (open) 180f else 0f,
+        if (reduce) androidx.compose.animation.core.tween(0) else androidx.compose.animation.core.tween(Motion.GLIDE, easing = Motion.Spring),
+        label = "chev",
+    )
+    val chevColor by androidx.compose.animation.animateColorAsState(if (open) c.accent else c.ink3, androidx.compose.animation.core.tween(250, easing = Motion.Ease), label = "chevInk")
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .tappable(shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), role = androidx.compose.ui.semantics.Role.Button, onClick = { open = !open })
+                .androidx_semantics(open)
+                .padding(horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MicroLabel("By month", Modifier.weight(1f))
+            AppIcon(Lucide.ChevronDown, null, tint = chevColor, size = 20.dp, modifier = Modifier.graphicsLayer { rotationZ = rotation })
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = open,
+            enter = if (reduce) androidx.compose.animation.EnterTransition.None else
+                androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(Motion.ARRIVE, easing = Motion.Spring), expandFrom = Alignment.Top) +
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(350, delayMillis = 50, easing = Motion.Ease)),
+            exit = if (reduce) androidx.compose.animation.ExitTransition.None else
+                androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween((Motion.ARRIVE * Motion.EXIT_FACTOR).toInt(), easing = Motion.Ease), shrinkTowards = Alignment.Top) +
+                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200, easing = Motion.Ease)),
+        ) {
+            Column(Modifier.padding(top = 2.dp)) {
+                y.months.forEachIndexed { i, m ->
+                    if (i > 0) com.personal.budget.ui.components.Hairline()
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(m.key.name, style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
+                        AppIcon(if (m.closed) Lucide.Lock else Lucide.LockOpen, null, tint = c.ink3, size = 14.dp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (m.closed) "closed" else "open", style = Budget.type.secondary, color = c.ink3)
+                        Spacer(Modifier.width(12.dp))
+                        if (m.closed) {
+                            val d = m.vsPlan
+                            AnimatedMoney(
+                                d,
+                                style = Budget.type.tableNumber,
+                                color = when {
+                                    kotlin.math.abs(d) < 0.005 -> c.ink2
+                                    d > 0 -> c.good
+                                    else -> c.bad
+                                },
+                                format = { Money.formatSigned(it) },
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.widthIn(min = 88.dp),
+                            )
+                        } else {
+                            Text("—", style = Budget.type.tableNumber, color = c.ink3, textAlign = TextAlign.End, modifier = Modifier.widthIn(min = 88.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun Modifier.androidx_semantics(open: Boolean) = this.then(
+    Modifier.semantics {
+        contentDescription = "By month"
+        stateDescription = if (open) "Expanded" else "Collapsed"
+        if (open) collapse { false } else expand { false }
+    },
+)
+
+/**
+ * DOMAIN_RULES §4b / UI_ANATOMY "Year": the headline is how far the projected leftover is ahead of
+ * or behind the plan, with projected / planned rows, a progress bar and one chip per month.
+ */
+@Composable
+private fun LeftoverVsPlanHero(y: YearSummary) {
+    val c = Budget.colors
+    val vs = y.leftoverVsPlan
+    val onPlan = kotlin.math.abs(vs) < 0.005
+    val tone = when {
+        onPlan -> c.ink
+        vs > 0 -> c.good
+        else -> c.bad
+    }
+    val caption = when {
+        onPlan -> "on plan"
+        vs > 0 -> "ahead of plan"
+        else -> "behind plan"
+    }
+    val projected = y.actual.totals.leftover
+    val planned = y.expected.totals.leftover
+    BudgetCard(padding = PaddingValues(18.dp)) {
+        MicroLabel("Leftover vs plan · ${y.year}")
+        Spacer(Modifier.height(4.dp))
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            itemVerticalAlignment = Alignment.Bottom,
+        ) {
+            AnimatedMoney(vs, style = Budget.type.hero, color = tone, format = { Money.formatSigned(it) })
+            Text(caption, style = Budget.type.body, color = c.ink2, modifier = Modifier.padding(bottom = 6.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        listOf("Projected" to projected, "Planned" to planned).forEach { (label, v) ->
+            Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(label, style = Budget.type.body, color = c.ink2, modifier = Modifier.weight(1f))
+                AnimatedMoney(v, style = Budget.type.tableNumber, color = if (v < 0) c.bad else c.ink, textAlign = TextAlign.End)
+            }
+        }
+        y.leftoverProgress?.let { p ->
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BudgetProgress(
+                    // Capped at 100 % (a full good bar); the percent label carries the rest.
+                    actual = projected.coerceIn(0.0, planned),
+                    expected = planned,
+                    height = 8.dp,
+                    color = if (p >= 1.0) c.good else c.accent,
+                    overColor = c.good,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(com.personal.budget.domain.usecase.Percent.format(p).replace(".0%", "%"), style = Budget.type.secondary, color = c.ink2)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        ByMonthDisclosure(y)
+    }
+}
+
+@Composable
+private fun SavingsRateCard(y: YearSummary) {
     val c = Budget.colors
     BudgetCard(padding = PaddingValues(16.dp)) {
+        CardHeader("Savings rate")
         MicroLabel("Annualized savings · ${y.monthCount} month${if (y.monthCount == 1) "" else "s"}")
         Spacer(Modifier.height(8.dp))
         // Side by side when there's room for two 32sp totals; otherwise stacked (never shrunk).
         androidx.compose.foundation.layout.BoxWithConstraints {
-            if (maxWidth >= 400.dp) {
+            if (maxWidth >= 300.dp) {
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     HighlightColumn("Expected", y.expected, Modifier.weight(1f), c.ink2)
                     HighlightColumn("Actual", y.actual, Modifier.weight(1f), c.ink)
@@ -183,7 +338,7 @@ private fun HighlightColumn(label: String, col: YearColumn, modifier: Modifier, 
     val c = Budget.colors
     Column(modifier) {
         Text(label, style = Budget.type.secondary, color = c.ink3)
-        AnimatedMoney(col.annualizedSavings, style = Budget.type.hero, color = color)
+        AnimatedMoney(col.annualizedSavings, style = Budget.type.number, color = color)
         Spacer(Modifier.height(2.dp))
         Text("${Percent.format(col.pctNetIncome)} of net", style = Budget.type.small, color = c.ink2)
         Text("${Percent.format(col.pctGrossIncome)} of gross", style = Budget.type.small, color = c.ink2)

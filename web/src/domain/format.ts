@@ -105,6 +105,12 @@ export function amountInputText(value: number | null | undefined): string {
   return String(Number(value.toPrecision(15)));
 }
 
+/** §4b caption for leftover vs plan: |x| < 0.005 counts as on plan. */
+export function vsPlanCaption(vsPlan: number): 'ahead of plan' | 'behind plan' | 'on plan' {
+  const c = toCents(vsPlan);
+  return c > 0 ? 'ahead of plan' : c < 0 ? 'behind plan' : 'on plan';
+}
+
 // ---- voice (docs/UI_ANATOMY.md "Brand (v2)": exact strings) ----
 
 /** Toast after a transaction write succeeded. */

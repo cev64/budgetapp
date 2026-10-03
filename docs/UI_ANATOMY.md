@@ -77,11 +77,20 @@ full width. Negative amount allowed via a "Refund" toggle. On save: toast "Added
 haptic on Android, the new row tints accent where it lands.
 
 ## Year
-Year switcher, then a card per group with Expected · Actual · Diff, totals, then a highlight
-card: Annualized savings (both columns), % of net, % of gross. A bar chart (12 slots; months that
-don't exist are empty): bar = expenses actual (projected), thin marker line = expected; open
-months drawn with 45% opacity.
-
+**Hero card first** (it replaces annualized savings as the headline): micro-label
+"LEFTOVER VS PLAN · 2026", hero number = leftover vs plan with sign (numbers token 32/40, coloured
+good/bad, ink at $0), caption "ahead of plan" / "behind plan" / "on plan" in ink-2. Two rows: "Projected"
+and "Planned" with their leftovers right-aligned. An 8px bar = projected / planned (fill `good` when
+≥ 100 %, else `accent`; percent at the right). Below it, a **collapsed "By month" disclosure**
+(a full-width button: micro-label "BY MONTH" + chevron, `aria-expanded`), closed by default and
+not remembered between visits. Opening it expands *inside the hero card* with the Fluid Glass §7.6
+`grid-template-rows 0fr → 1fr` spring (Android: `AnimatedVisibility` expandVertically + fade, same curves)
+into a compact list, one row per month in the year: month name, a small "closed"/"open" status
+(lock icon), and right-aligned vs-plan amount (`good`/`bad`; open months show "—" in ink-3).
+The chevron rotates 180° when open. No chips.
+Numbers animate (roll/bump) when they change. On expanded widths the hero spans the full content width.
+Then the year switcher, the grouped table (Expected · Actual · Diff), totals, then a smaller
+**Savings rate** card (annualized savings both columns, % of net, % of gross), then the chart.
 ## Net worth
 Hero: Net worth with change for the selected range (`+$1,240 · 3M` in `good`/`bad`). Under it the
 **history chart**: 180px tall (240 expanded), smooth area line in `accent` with a 12% accent fill fading

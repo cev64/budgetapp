@@ -208,6 +208,15 @@ Deno.test("set_month_closed: closing January changes the year summary", async ()
   assertEquals(after.data.totals.actual.saved, 1200);
   assertEquals(after.data.totals.actual.leftover, -565);
   assertEquals(after.data.totals.actual.annualized_savings, 7620);
+  assertEquals(before.data.leftover_vs_plan, 0);
+  assertEquals(after.data.leftover_vs_plan, -1770);
+  assertEquals(after.data.months[0].vs_plan, -1770);
+  assertEquals(
+    after.text.split("\n").slice(0, 2),
+    ["2026 leftover: \u2212$1,770 vs plan (behind plan): projected \u2212$565, planned $1,205", "By month vs plan: Jan \u2212$1,770"],
+  );
+  assertStringIncludes(before.text.split("\n")[0], "2026 leftover: $0 vs plan (on plan): projected $1,205, planned $1,205");
+  assertStringIncludes(before.text.split("\n")[1], "Jan open");
   assertEquals(after.data.totals.expected.annualized_savings, 28860); // expected column unchanged
   assertStringIncludes(closed.text, "annualized savings $28,860 → $7,620");
   const again = await ok(ctx, "set_month_closed", { year: 2026, month: 1, closed: true });
@@ -228,6 +237,11 @@ Deno.test("get_year_summary matches expected.json for 2025", async () => {
       assertAlmostEquals(data.totals[col][k], v as number, 1e-6, `${col}.${k}`);
     }
   }
+  assertEquals([data.leftover_vs_plan, data.leftover_vs_plan_status], [261.75, "ahead of plan"]);
+  assertEquals(data.months.map((m: Any) => m.vs_plan), [319.5, -57.75]);
+  const [first, second] = (await ok(ctx, "get_year_summary", { year: 2025 })).text.split("\n");
+  assertEquals(first, "2025 leftover: +$261.75 vs plan (ahead of plan): projected $2,482, planned $2,220");
+  assertEquals(second, "By month vs plan: Nov +$319.50 · Dec \u2212$57.75");
   const food = data.categories.find((c: Any) => c.name === "Food");
   assertEquals([food.expected, food.actual, food.difference], [800, 763.75, -36.25]);
   assertEquals(data.months.map((m: Any) => m.closed), [true, true]);

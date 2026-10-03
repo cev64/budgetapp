@@ -110,6 +110,26 @@ Both columns get annualized savings and percentages. If n = 0, show empty state.
 Reference values from the real sheet (July–Dec 2026): Expected annualized savings 29,712
 (43.7 % of net, 35.0 % of gross); Actual 29,622 (43.6 %, 34.8 %).
 
+## 4b. Leftover vs plan: the Year page headline
+
+The user's primary number for a year is how far the projected leftover is ahead of / behind the plan.
+
+```
+leftoverVsPlan(Y)        = yearActual.leftover − yearExpected.leftover        (§4 columns)
+projectedLeftover(m)     = §2 leftover computed with projected(m, c) for every category
+monthVsPlan(m)           = projectedLeftover(m) − expectedLeftover(m)
+                           (always 0 for open months, since projected = expected there)
+Σ_m monthVsPlan(m)       = leftoverVsPlan(Y)                                  (exact, by linearity)
+progress                 = yearActual.leftover / yearExpected.leftover        (only if expected leftover > 0)
+```
+
+Display: sign always shown (`+$1,380`, `−$45`, `$0`); `good` when > 0 with the caption "ahead of plan",
+`bad` when < 0 with "behind plan", `ink` and "on plan" when 0 (|x| < 0.005). Per-month chips show
+`monthVsPlan` for closed months and "open" for open months.
+
+Test vectors (docs/fixtures/sample-backup.json): 2025 → expected leftover 2220, projected 2481.75,
+**vs plan +261.75**; Nov 2025 (closed) +319.50, Dec 2025 (closed) −57.75; 2026 → vs plan 0, Jan 2026 open.
+
 ## 5. Net worth (Summary G2:H17, J2:K15)
 
 ```

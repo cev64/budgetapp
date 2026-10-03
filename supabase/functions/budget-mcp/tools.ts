@@ -10,6 +10,8 @@ import {
   compareYM,
   formatMoney,
   formatPct,
+  formatSignedMoney,
+  planStatus,
   formatShortDate,
   formatSignedPct,
   type HistoryChange,
@@ -747,7 +749,7 @@ tool({
   name: "get_year_summary",
   title: "Year summary",
   description:
-    "Year totals per category: expected vs projected actual (closed months use actuals, open months their budget) and difference; totals for income, expenses, saved (incl. 401k match) and leftover; annualized savings and its % of net and gross income; plus each month's status and leftover. Defaults to the current year (or the latest year with months).",
+    "Year headline: leftover vs plan (projected leftover − planned leftover, with each closed month's contribution), then year totals per category: expected vs projected actual (closed months use actuals, open months their budget) and difference; totals for income, expenses, saved (incl. 401k match) and leftover; annualized savings and its % of net and gross income; plus each month's status and leftover. Defaults to the current year (or the latest year with months).",
   inputSchema: { year: yearS.optional().describe("Year, e.g. 2026.") },
   annotations: READ,
   handler: async (args: { year?: number }, ctx) => {
@@ -760,7 +762,12 @@ tool({
       const years = [...new Set(months.map((m) => m.year))];
       return { text: `No months exist in ${y}. Years with data: ${years.join(", ") || "none"}.`, data: { year: y, month_count: 0, years } };
     }
-    const lines = [`${y} summary — ${v.month_count} month(s): ${v.months.map((m) => `${m.name.slice(0, 3)} ${m.closed ? "closed" : "open"}`).join(", ")}`];
+    const vp = v.leftover_vs_plan;
+    const lines = [
+      `${y} leftover: ${formatSignedMoney(vp)} vs plan (${planStatus(vp)}): projected ${formatMoney(v.actual.leftover)}, planned ${formatMoney(v.expected.leftover)}`,
+      "By month vs plan: " + v.months.map((m) => `${m.name.slice(0, 3)} ${m.closed ? formatSignedMoney(m.vs_plan) : "open"}`).join(" · "),
+      `${y} summary — ${v.month_count} month(s): ${v.months.map((m) => `${m.name.slice(0, 3)} ${m.closed ? "closed" : "open"}`).join(", ")}`,
+    ];
     for (const g of GROUPS) {
       const rows = v.categories.filter((c) => c.kind === g.kind);
       if (!rows.length) continue;
@@ -776,6 +783,9 @@ tool({
       text: lines.join("\n"),
       data: {
         year: y,
+        leftover_vs_plan: vp,
+        leftover_vs_plan_status: planStatus(vp),
+        progress: v.progress,
         month_count: v.month_count,
         months: v.months,
         categories: v.categories.map(({ category_id: _id, ...r }) => r),
@@ -1113,4 +1123,4 @@ Model:
 - Months are created from the previous month's budgets plus recurring subscriptions (create_month); add_transaction / set_budget / set_actual create a missing month automatically and say so.
 - Net worth: accounts (update_account_balance; 401k/HSA-style linked accounts are computed from contributions) plus unsettled IOUs in the ledger (add_ledger_entry, settle_ledger_entry; positive = owed to me). A snapshot is kept per day (nightly and after changes); get_net_worth_history shows the trend.
 
-Tips: for "how much X do I have left" use get_budget_overview (remaining = expected − actual). To fix or remove a transaction, find its id with list_transactions first. Negative transaction amounts are refunds. Confirm what changed using the numbers the tools return.`;
+Tips: for "how am I doing this year" / "what's my leftover" use get_year_summary and lead with its first line, leftover vs plan (ahead of / behind plan, and which closed months drove it). For "how much X do I have left" use get_budget_overview (remaining = expected − actual). To fix or remove a transaction, find its id with list_transactions first. Negative transaction amounts are refunds. Confirm what changed using the numbers the tools return.`;
