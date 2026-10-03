@@ -20,7 +20,6 @@ import {
   type Kind,
   type MatchResult,
   matchByName,
-  mealPlansView,
   type MonthCategoryRow,
   monthName,
   monthView,
@@ -1050,50 +1049,6 @@ tool({
         changed: true,
         net_reconciliations: recon,
         net_worth_snapshot_refreshed: snapshotRefreshed,
-      },
-    };
-  },
-});
-
-// 15. get_meal_plans -------------------------------------------------------
-tool({
-  name: "get_meal_plans",
-  title: "Meal plans and recipes",
-  description:
-    "Meal plans (full days of eating) and recipes with their items and totals (calories, protein, fiber, fat, cost). Day plans also show monthly cost = daily cost × days per month (30.5 by default).",
-  inputSchema: {},
-  annotations: READ,
-  handler: async (_args, ctx) => {
-    const [settings, meal_plans, meal_items] = await Promise.all([
-      ctx.store.getSettings(),
-      ctx.store.listMealPlans(),
-      ctx.store.listMealItems(),
-    ]);
-    const plans = mealPlansView({ settings, categories: [], months: [], budgets: [], transactions: [], meal_plans, meal_items });
-    const lines: string[] = [];
-    for (const p of plans) {
-      const tt = p.totals;
-      lines.push(
-        `${p.name} (${p.kind}${p.label ? `, ${p.label}` : ""}): ${tt.calories} kcal, ${tt.protein} g protein, ${tt.fiber} g fiber, ${tt.fat} g fat, ${formatMoney(tt.cost)}${
-          tt.monthly_cost !== undefined ? `/day → ${formatMoney(tt.monthly_cost)}/month` : ""
-        }`,
-      );
-      for (const i of p.items) {
-        lines.push(`  ${i.time_label ? i.time_label + " " : ""}${i.name}: ${i.calories ?? 0} kcal, ${i.protein ?? 0} g protein, ${formatMoney(i.cost ?? 0)}`);
-      }
-      if (p.kind === "recipe" && p.note) lines.push(`  Steps: ${p.note}`);
-    }
-    return {
-      text: lines.join("\n") || "No meal plans yet.",
-      data: {
-        plans: plans.map((p) => ({
-          name: p.name,
-          kind: p.kind,
-          label: p.label,
-          note: p.note,
-          totals: p.totals,
-          items: p.items.map((i) => ({ time: i.time_label ?? null, name: i.name, calories: i.calories, protein: i.protein, fiber: i.fiber, fat: i.fat, cost: i.cost })),
-        })),
       },
     };
   },

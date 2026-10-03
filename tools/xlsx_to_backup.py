@@ -66,9 +66,9 @@ def main(src, dst):
     wf = openpyxl.load_workbook(src)  # formulas (to know which actuals were typed)
     out = {"app": "budget", "version": 1,
            "exported_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-           "settings": {"net_income": 68000, "gross_income": 85000, "currency": "USD", "days_per_month": 30.5},
+           "settings": {"net_income": 68000, "gross_income": 85000, "currency": "USD"},
            "categories": [], "months": [], "budgets": [], "transactions": [], "recurring_items": [],
-           "accounts": [], "ledger_entries": [], "meal_plans": [], "meal_items": []}
+           "accounts": [], "ledger_entries": []}
     for name, kind, tracking, mult, sort, _ in CATS:
         out["categories"].append({"id": CAT_ID[name], "name": name, "kind": kind, "tracking": tracking,
                                   "match_multiplier": mult, "sort_order": sort, "icon": None,
@@ -134,55 +134,6 @@ def main(src, dst):
             out["ledger_entries"].append({"id": uid("ledger", name), "name": clean(name),
                                           "amount": num(s[f"K{r}"].value), "note": None,
                                           "settled": False, "sort_order": i})
-
-    food = wb["Food"]
-    # Four day plans: (time col, first data col, header label cell)
-    plans = [("B", "C", "C3", "Deficit A"), ("J", "K", "K3", "Maintenance"),
-             ("R", "S", "S3", "Deficit B"), ("Z", "AA", "AA3", "Deficit C")]
-    from openpyxl.utils import column_index_from_string as ci, get_column_letter as cl
-    for p, (tcol, ncol, hdr, pname) in enumerate(plans):
-        pid = uid("plan", pname)
-        out["meal_plans"].append({"id": pid, "name": pname, "kind": "day", "label": food[hdr].value,
-                                  "note": None, "sort_order": p})
-        n0 = ci(ncol)
-        time_label, k = None, 0
-        for r in range(5, 27):
-            t = food[f"{tcol}{r}"].value
-            if isinstance(t, dt.time):
-                h = t.hour
-                # Sheet stores 3:00 / 6:30 meaning afternoon/evening
-                if r >= 13:
-                    h += 12
-                time_label = dt.time(h, t.minute).strftime("%-I:%M %p")
-            name = food[f"{cl(n0)}{r}"].value
-            vals = [num(food[f"{cl(n0 + j)}{r}"].value) for j in range(1, 6)]
-            if not name or not isinstance(name, str) or name == "OR":
-                continue
-            cal, pro, fib, cost, fat = vals
-            out["meal_items"].append({"id": uid("item", pname, r), "plan_id": pid, "time_label": time_label,
-                                      "name": clean(name), "calories": cal, "protein": pro, "fiber": fib,
-                                      "fat": fat, "cost": cost, "sort_order": k})
-            k += 1
-
-    def recipe(name, rows, cols, note=None, sort=10):
-        pid = uid("recipe", name)
-        out["meal_plans"].append({"id": pid, "name": name, "kind": "recipe", "label": None,
-                                  "note": note, "sort_order": sort})
-        for k, r in enumerate(rows):
-            nm = food[f"{cols['name']}{r}"].value
-            if not nm:
-                continue
-            g = lambda key: num(food[f"{cols[key]}{r}"].value) if key in cols else None
-            out["meal_items"].append({"id": uid("ritem", name, r), "plan_id": pid, "time_label": None,
-                                      "name": clean(nm), "calories": g("cal"), "protein": g("pro"),
-                                      "fiber": g("fib"), "fat": g("fat"), "cost": g("cost"), "sort_order": k})
-
-    recipe("Overnight oats", range(31, 36), dict(name="C", cal="D", pro="E", fib="F", cost="G", fat="H"), sort=10)
-    recipe("Overnight oats (PB Fit)", range(31, 36), dict(name="K", cal="L", pro="M", fib="N", cost="O", fat="P"), sort=11)
-    steps = "\n".join(f"{int(food[f'B{r}'].value)}. {clean(food[f'C{r}'].value)}" for r in range(54, 61))
-    recipe("Chicken fried rice", range(42, 50), dict(name="C", cal="D", pro="E", fib="F", fat="G"), note=steps, sort=12)
-    recipe("Chicken pasta", range(42, 46), dict(name="K", cal="L", pro="M", fib="N", fat="O", cost="P"), sort=13)
-    recipe("Taco pot bowl", range(64, 68), dict(name="C", cal="D", pro="E", fib="F", fat="G"), sort=14)
 
     with open(dst, "w") as f:
         json.dump(out, f, indent=1)

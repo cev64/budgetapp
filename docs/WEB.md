@@ -11,7 +11,8 @@ Live: https://cev64.github.io/budgetapp/ (deployed from `main` by `.github/workf
 
 Vite + React 19 + TypeScript (strict), `@supabase/supabase-js` v2, `lucide-react` icons,
 `react-router` (HashRouter, so GitHub Pages needs no rewrites), `vitest`. Charts are hand-rolled SVG.
-Fonts: Inter and Barlow Condensed from Google Fonts. No other runtime dependencies.
+Fonts are bundled (`@fontsource-variable/inter`, `@fontsource/barlow-condensed` 600); nothing is loaded
+from a font CDN. No other runtime dependencies.
 
 ## Running locally
 
@@ -31,7 +32,10 @@ Node 22 is what CI uses.
 
 Open `#/?demo=1` (for example http://localhost:5173/#/?demo=1) or press **Try demo mode** on the
 sign-in screen. The app loads `docs/fixtures/sample-backup.json` into an in-memory backend: no
-network, nothing saved, a "Demo data" pill in the top bar. Writes, import and export all work, but
+network, nothing saved, a "Demo data" pill in the top bar. For the net worth chart it also synthesizes
+~400 days of history in memory (`src/data/demoHistory.ts`: a seeded random walk per account with upward
+drift that ends at the fixture's current balances); it is never written anywhere, and demo mode never
+calls the snapshot RPC, so the history does not move when you edit balances. Writes, import and export all work, but
 vanish on reload. Demo mode lasts for the browser tab (sessionStorage); **Settings → Exit demo**
 leaves it. The fixture is code-split, so normal users never download it.
 
@@ -53,7 +57,8 @@ before the hash router mounts, so a link opened in any browser works. A recovery
 ```
 web/
   index.html                 theme applied before first paint, fonts, manifest
-  public/                    icon.svg (+ maskable), PNG icons, manifest.webmanifest
+  public/                    brand favicon.svg, app icons (1024 any, 512 maskable, 192, 180 apple-touch),
+                             manifest.webmanifest
   sw/sw.js                   service worker template (vite.config.ts fills version + asset list)
   src/
     main.tsx                 boot: theme, auth redirect handling, render, SW registration (prod only)
@@ -62,9 +67,11 @@ web/
       types.ts, tables.ts    row types, table keys, on_conflict targets, column lists, normalisation
       calc.ts                DOMAIN_RULES §1–§4: per-category values, month totals, projection, year summary
       networth.ts            §5 net worth, super liquid, reconciliations, linked accounts
+      history.ts             §5b net worth history: changeOver, ranges (1M/3M/6M/1Y/All), series, per-account
+      categoryStyle.ts       category colour + symbol from design/tokens.json (palette + assignment)
       meals.ts               §7 plan totals and monthly cost
       newMonth.ts            §6 new-month rows (budgets copied forward, recurring items, day clamped)
-      format.ts              §8 money / percent / difference tone, amount parsing
+      format.ts              §8 money (whole dollars from $1,000) / percent / tone, parsing, brand voice strings
       backup.ts              backup JSON build / parse / merge plan (SYNC.md)
       dates.ts
     data/
@@ -72,12 +79,14 @@ web/
       store.ts               the client store: snapshot, optimistic writes, merges, cache
       actions.ts             every user-facing write (set budget, create month, CRUD, import …)
       mcp.ts                 MCP connection tokens (Settings → AI assistant)
+      demoHistory.ts         synthetic net worth history for demo mode
       supabase.ts, demo.ts, safeStorage.ts
     app/                     Root (auth gate), routes, Shell (nav, top bar, add sheet), session context
     screens/                 Home, Month (+ CategoryDetail), Year, NetWorth, Meals, Settings, Auth,
                              TransactionSheet, McpSection
     ui/                      Fluid Glass kit: motion.ts (tint, glideIndicator, rollText, FLIP), Seg,
-                             Sheet + ask(), Toast, Menu, FlipList, Num, controls, theme
+                             Sheet + ask(), Toast, Menu, FlipList, Num, controls, theme, Brand (logo),
+                             HistoryChart (area chart + Sparkline)
     styles/                  tokens.css (light + dark), base.css (guide §5–§7), app.css (layout, screens)
   test/                      vitest suites
 ```
@@ -95,7 +104,7 @@ only sees live rows.
 - **Load:** on start the store paints the cached snapshot from localStorage
   (`budget.cache.<user id>`), then pulls every table in full from Supabase, 1000 rows per page,
   ordered by `updated_at` plus the key.
-- **Realtime:** one channel subscribes to `postgres_changes` on all ten tables with the filter
+- **Realtime:** one channel subscribes to `postgres_changes` on all eleven tables with the filter
   `user_id=eq.<uid>`. Each change is merged as it arrives, so edits on the phone show up live.
 - **Catch-up:** on window focus / tab visible, on the browser `online` event and whenever the realtime
   channel re-subscribes, the store pulls rows with `updated_at > cursor − 10 s` per table (SYNC.md rule 3).
@@ -110,6 +119,19 @@ only sees live rows.
 - **Status dot** in the top bar: green synced, pulsing blue syncing, amber offline. Clicking it
   syncs now (also in Settings → Data).
 - **Sign-out** deletes the cached snapshot from the browser.
+
+### Net worth history
+
+`net_worth_snapshots` (DOMAIN_RULES §5b) is loaded, cached and merged from realtime like the other
+tables, but it is **pull-only**: `Store.write` refuses it, except for backup import (rows marked
+`source: "import"`). After a successful write that can change net worth (accounts, ledger entries, or
+budgets / categories that an account links to) the store calls RPC `take_net_worth_snapshot()`,
+debounced 2 s, and merges the returned row; it also calls it after an import. The server computes every
+snapshot value. The Net worth screen shows the live total, the change for the selected range
+(1M/3M/6M/1Y/All, remembered per browser), an SVG area chart with scrub tooltip and a Super liquid
+overlay, 30-day changes on the tiles, and per-account history when you tap an account. Home's Net worth
+tile shows the 30-day change and a sparkline. With fewer than 2 snapshots the chart shows
+"History starts today, a point is saved every day."
 
 ### Backup import / export
 
@@ -131,7 +153,20 @@ has no realtime subscription and is not in backups. In demo mode the section is 
 
 ## Layout and design
 
-Fluid Glass tokens are CSS variables (`src/styles/tokens.css`). The dark theme follows
+Fluid Glass + brand tokens (`design/tokens.json` v2) are CSS variables (`src/styles/tokens.css`).
+Labels on accent fills use `--on-accent` (white in light, navy in dark), toasts `--on-toast`, inputs
+`--control-border`, focus is a 2px `--focus-ring` with 2px offset, sheets and floating bars have radius 24.
+Type follows the v2 scale: body 16/24, table numbers 16/500 with tabular lining figures, micro 12/600,
+display Barlow Condensed 600 40/44, titles 24/30, hero numbers 32/40. Type never shrinks to fit: narrow
+cards switch layout instead (names move above the number columns under ~340px of card width).
+Hit targets are at least 44px (small controls get an invisible 44px hit area).
+
+Brand: the side nav shows the logo lockup and the rail / sign-in screen show the mark, inlined from
+`design/brand/logo-lockup.svg` and `logo-mark.svg` with their two colours mapped to `--ink` / `--accent`
+(which equal the dark lockup's colours in dark mode). Categories get their colour **and symbol** from
+`categoryPalette` via `categoryAssignment` (`src/domain/categoryStyle.ts`); labels stay in ink. Copy uses
+the exact strings from UI_ANATOMY "Brand (v2)" (saved / over-budget / month-closed / empty month / sign-in).
+Money display follows DOMAIN_RULES §8: whole dollars from $1,000 up; edit fields show the exact value. The dark theme follows
 `prefers-color-scheme` unless Settings → Appearance sets Light or Dark (`data-theme` on `<html>`,
 stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a glass bottom bar with a round Add
 button above it; 600–1023px an 80px rail with Add on top; from 1024px a 220px side nav, an Add button
@@ -147,7 +182,7 @@ removed rows red, spring sheets and toasts. `prefers-reduced-motion` turns all o
 `manifest.webmanifest` + icons make it installable ("Add expense" shortcut opens `#/?add=1`). The
 service worker (`sw/sw.js`) is registered only in production builds. It precaches the app shell, serves
 same-origin requests network-first with a versioned cache (`budget-<version>-<build>`, bumped on every
-build), and leaves Supabase and font requests to the network. Together with the localStorage snapshot,
+build), precaching the Latin font subsets, and leaves Supabase requests to the network. Together with the localStorage snapshot,
 the app opens and stays readable offline.
 
 ## Deploy

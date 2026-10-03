@@ -39,19 +39,19 @@ async function ok(ctx: ToolContext, name: string, args: Record<string, unknown> 
 
 const cat = (data: Any, group: string, name: string) => data.groups[group].find((c: Any) => c.name === name);
 
-Deno.test("tool list: 17 tools, all with descriptions and annotations", () => {
+Deno.test("tool list: 16 tools, all with descriptions and annotations", () => {
   const names = TOOLS.map((t) => t.name);
   assertEquals(names, [
     "get_budget_overview", "list_categories", "add_transaction", "list_transactions", "update_transaction",
     "delete_transaction", "set_budget", "set_actual", "set_month_closed", "create_month", "get_year_summary",
-    "get_net_worth", "get_net_worth_history", "update_account_balance", "add_ledger_entry", "settle_ledger_entry", "get_meal_plans",
+    "get_net_worth", "get_net_worth_history", "update_account_balance", "add_ledger_entry", "settle_ledger_entry",
   ]);
   for (const t of TOOLS) {
     assert(t.description.length > 60, t.name);
     assertEquals(typeof t.annotations.readOnlyHint, "boolean");
   }
   assertEquals(TOOLS.find((t) => t.name === "delete_transaction")!.annotations.destructiveHint, true);
-  for (const n of ["get_budget_overview", "list_categories", "list_transactions", "get_year_summary", "get_net_worth", "get_net_worth_history", "get_meal_plans"]) {
+  for (const n of ["get_budget_overview", "list_categories", "list_transactions", "get_year_summary", "get_net_worth", "get_net_worth_history"]) {
     assertEquals(TOOLS.find((t) => t.name === n)!.annotations.readOnlyHint, true, n);
   }
 });
@@ -344,12 +344,8 @@ Deno.test("ledger tools: add, settle by name, already settled, unsettle by id", 
   assertMatch(missing.text, /No unsettled ledger entry matches/);
 });
 
-Deno.test("get_meal_plans and list_categories", async () => {
+Deno.test("list_categories", async () => {
   const { ctx } = setup();
-  const meals = await ok(ctx, "get_meal_plans");
-  const day = meals.data.plans.find((p: Any) => p.name === "Day");
-  assertEquals(day.totals, expected.meal_plans.Day);
-  assertStringIncludes(meals.text, "$140.91/month");
   const cats = await ok(ctx, "list_categories");
   assertEquals(cats.data.categories.find((c: Any) => c.name === "401k"), {
     name: "401k", kind: "savings", tracking: "manual", multiplier: 2, archived: false,

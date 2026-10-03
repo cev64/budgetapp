@@ -93,16 +93,6 @@ def compute(data):
     out["net_worth"] = {"accounts": accts, "net_reconciliations": round(recon, 4),
                         "net_worth": round(sum(accts.values()) + recon, 4), "super_liquid": round(liquid, 4)}
 
-    plans = {}
-    for p in data["meal_plans"]:
-        if p.get("deleted"):
-            continue
-        items = [i for i in data["meal_items"] if i["plan_id"] == p["id"] and not i.get("deleted")]
-        tot = {k: round(sum(i.get(k) or 0 for i in items), 4) for k in ("calories", "protein", "fiber", "fat", "cost")}
-        if p["kind"] == "day":
-            tot["monthly_cost"] = round(tot["cost"] * st["days_per_month"], 4)
-        plans[p["name"]] = tot
-    out["meal_plans"] = plans
     return out
 
 

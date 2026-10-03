@@ -21,7 +21,7 @@ All math follows `docs/DOMAIN_RULES.md`. Sync and auth follow `docs/SYNC.md`.
 
 ## Screens (both apps, same names, same order)
 
-Navigation destinations: **Home · Month · Year · Net worth · Meals**, plus **Settings**
+Navigation destinations: **Home · Month · Year · Net worth**, plus **Settings**
 (gear in the top bar). Global **Add** action (FAB on Android, primary button in the top bar
 on web, plus keyboard shortcut `N`).
 
@@ -57,15 +57,9 @@ on web, plus keyboard shortcut `N`).
   (401k, HSA) show "auto · base + contributions" and are not directly editable (edit base instead).
 - Ledger (IOUs): name, amount (+ owed to me / − I owe), settle toggle, add/edit/delete.
 
-### Meals
-- Day plans (Deficit / Maintenance variants) side by side on wide screens, one at a time on narrow:
-  time-grouped items with calories, protein, fiber, fat, cost, plus totals and **monthly cost (× 30.5)**.
-- Recipes with ingredients, totals, and steps note.
-- Add / edit / delete plans and items; duplicate a plan.
-
 ### Settings
 - Account: email, sign out.
-- Income: annual net, annual gross (for savings %), days per month (meal cost).
+- Income: annual net, annual gross (for savings %).
 - Categories: add, rename, kind, tracking, match multiplier, reorder, archive.
 - Recurring items (subscriptions): add/edit, day of month, active.
 - Appearance: System / Light / Dark. Android also has: dynamic color (off by default so it matches web).
@@ -76,7 +70,7 @@ on web, plus keyboard shortcut `N`).
 - Package / applicationId: `com.personal.budget` (permanent).
 - Compact (cover screen): bottom navigation, single pane, FAB.
 - Expanded (inner screen): navigation rail; Month = category list + category detail side by side;
-  Home = 2–3 column dashboard; Year = table + chart side by side; Meals = plans side by side.
+  Home = 2–3 column dashboard; Year = table + chart side by side; Net worth = chart + accounts side by side.
 - Fold continuity: selected month, selected category, open sheet and its text survive fold/unfold.
 - Glance widget "Budget": leftover this month, top 3 categories remaining, **Add** button deep-linking
   to the add-transaction sheet. Sizes small / medium / large. Updated after every local change and sync.
@@ -99,4 +93,4 @@ on web, plus keyboard shortcut `N`).
 
 ## Not ported from the sheet (deliberately)
 - `Sheet6` (freelance client income scratch calculation).
-- Food tab extras: rent-split scratch numbers and the weekday sleep log.
+- The entire `Food` tab (meal plans, recipes, rent-split scratch numbers, sleep log): out of scope for this app.

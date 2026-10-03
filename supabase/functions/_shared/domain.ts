@@ -18,7 +18,6 @@ export const DEFAULT_SETTINGS: Settings = {
   net_income: 68000,
   gross_income: 85000,
   currency: "USD",
-  days_per_month: 30.5,
 };
 
 // ---------------------------------------------------------------------------
@@ -32,7 +31,6 @@ export interface Settings {
   net_income: number;
   gross_income: number;
   currency: string;
-  days_per_month: number;
 }
 
 export interface Category {
@@ -112,30 +110,6 @@ export interface LedgerEntry {
   deleted?: boolean;
 }
 
-export interface MealPlan {
-  id: string;
-  name: string;
-  kind: "day" | "recipe";
-  label?: string | null;
-  note?: string | null;
-  sort_order: number;
-  deleted?: boolean;
-}
-
-export interface MealItem {
-  id: string;
-  plan_id: string;
-  time_label?: string | null;
-  name: string;
-  calories: number | null;
-  protein: number | null;
-  fiber: number | null;
-  fat: number | null;
-  cost: number | null;
-  sort_order: number;
-  deleted?: boolean;
-}
-
 /** Everything a computation may need. Pieces not needed by a function may be empty. */
 export interface Snapshot {
   settings: Settings;
@@ -146,8 +120,6 @@ export interface Snapshot {
   recurring_items?: RecurringItem[];
   accounts?: Account[];
   ledger_entries?: LedgerEntry[];
-  meal_plans?: MealPlan[];
-  meal_items?: MealItem[];
 }
 
 // ---------------------------------------------------------------------------
@@ -616,49 +588,6 @@ export function historyView(
 export function accountBalanceIn(s: NetWorthSnapshot, accountId: string): number | null {
   const a = (s.accounts ?? []).find((x) => x.id === accountId);
   return a ? Number(a.balance) : null;
-}
-
-// ---------------------------------------------------------------------------
-// §7 Meal plans
-// ---------------------------------------------------------------------------
-
-export interface MealTotals {
-  calories: number;
-  protein: number;
-  fiber: number;
-  fat: number;
-  cost: number;
-  monthly_cost?: number;
-}
-
-export interface MealPlanView {
-  id: string;
-  name: string;
-  kind: "day" | "recipe";
-  label: string | null;
-  note: string | null;
-  items: MealItem[];
-  totals: MealTotals;
-}
-
-export function mealPlansView(s: Snapshot): MealPlanView[] {
-  const items = live(s.meal_items);
-  return live(s.meal_plans)
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((p) => {
-      const its = items.filter((i) => i.plan_id === p.id).sort((a, b) => a.sort_order - b.sort_order);
-      const sum = (k: "calories" | "protein" | "fiber" | "fat" | "cost") =>
-        r4(its.reduce((acc, i) => acc + Number(i[k] ?? 0), 0));
-      const totals: MealTotals = {
-        calories: sum("calories"),
-        protein: sum("protein"),
-        fiber: sum("fiber"),
-        fat: sum("fat"),
-        cost: sum("cost"),
-      };
-      if (p.kind === "day") totals.monthly_cost = r4(totals.cost * Number(s.settings.days_per_month));
-      return { id: p.id, name: p.name, kind: p.kind, label: p.label ?? null, note: p.note ?? null, items: its, totals };
-    });
 }
 
 // ---------------------------------------------------------------------------

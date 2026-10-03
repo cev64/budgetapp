@@ -17,7 +17,6 @@ Web: `lucide-react`. Android: the same SVG paths converted to vector drawables /
 | Month | `calendar-days` |
 | Year | `chart-column` |
 | Net worth | `landmark` |
-| Meals | `utensils` |
 | Settings | `settings` |
 | Add | `plus` |
 | Closed month | `lock` / open `lock-open` |
@@ -38,7 +37,7 @@ Web: `lucide-react`. Android: the same SVG paths converted to vector drawables /
 ## Layout breakpoints (window width, not device)
 | Name | Width | Navigation | Panes |
 |---|---|---|---|
-| Compact (Fold cover / phone / narrow browser) | < 600 | glass bottom bar (5 items), Add = FAB (Android) / round accent button centred above bar (web) | 1 |
+| Compact (Fold cover / phone / narrow browser) | < 600 | glass bottom bar (4 items), Add = FAB (Android) / round accent button centred above bar (web) | 1 |
 | Medium (Fold inner portrait-ish, tablet) | 600–1023 | navigation rail 80px wide, Add at top of rail | 2 where useful |
 | Expanded (Fold inner landscape / desktop) | ≥ 1024 | rail (Android) / 220px side nav with labels (web) | 2–3 |
 
@@ -93,11 +92,6 @@ saved every day."
  Tiles: Super liquid, Investments, Net reconciliations. Accounts card grouped
 (micro-label per group); row: name, balance (tap to edit inline); linked accounts show an "auto" pill.
 Ledger card: name, amount (green if owed to me, red if I owe), settle checkbox (settled rows fade to .5 and strike through).
-
-## Meals
-Segmented: **Plans · Recipes**. A plan card: title + label pill, rows grouped under time labels,
-each row: name, kcal, P, F(iber), fat, $; totals row; footer "≈ $284 / month".
-Expanded width shows plans side by side (2–4 columns).
 
 ## Settings
 Grouped list cards: Account, Income & targets, Categories, Recurring, Appearance, Data, About.

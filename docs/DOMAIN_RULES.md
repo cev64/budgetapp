@@ -17,9 +17,8 @@ All money is a decimal number (no rounding in storage). Round only for display.
 | `transactions` (year, month, category, date?, item, amount) | The small Date/Item/Amount tables (Paychecks, Subscriptions, Misc, Food, Fun, Gas) |
 | `accounts` | Summary G3:H13 (Net worth) |
 | `ledger_entries` | Summary J3:K13 ("Ledger", net reconciliations) |
-| `meal_plans` / `meal_items` | The `Food` tab |
 | `recurring_items` | The subscription rows pre-filled into future months |
-| `settings` | Hard-coded 68000 / 85000 in Summary C25:D26, 30.5 in Food!G28 |
+| `settings` | Hard-coded 68000 / 85000 in Summary C25:D26 |
 
 Default categories (seeded server-side on sign-up), in sort order:
 
@@ -165,16 +164,9 @@ perAccountSeries(id) = [(taken_on, accounts[id].balance)] for snapshots containi
 The app offers "Start {next month}" when the latest month is the current calendar month or
 earlier, and lets the user create any month of any year from the month picker.
 
-## 7. Meal plans (Food tab)
+## 7. (removed)
 
-```
-planTotal.{calories, protein, fiber, fat, cost} = Σ items (null = 0)
-monthlyCost = planTotal.cost × settings.days_per_month (30.5)
-```
-
-`kind = 'day'` plans are full days of eating (shown with time labels, totals and monthly
-cost). `kind = 'recipe'` plans are one dish broken into ingredients (totals, no monthly cost),
-`note` holds the steps.
+Meal plans were removed from the product (the spreadsheet's `Food` tab is out of scope).
 
 ## 8. Display rules (both apps)
 

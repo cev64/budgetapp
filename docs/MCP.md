@@ -98,7 +98,6 @@ negative transaction amounts are refunds.
 | `update_account_balance` | Sets an account balance. Linked accounts (401k, HSA) refuse a balance and take `base_amount` instead. | "Checking is 2,340 now" |
 | `add_ledger_entry` | Adds an IOU (positive = owed to me, negative = I owe). | "Sam owes me 40 for tickets" |
 | `settle_ledger_entry` | Settles an IOU by name or id. `settled: false` reopens it. | "Sam paid me back" |
-| `get_meal_plans` (read-only) | Meal plans and recipes with totals and monthly cost (× days per month). | "What does my deficit day cost per month?" |
 
 Net worth snapshots (§5b): after every write that can change net worth (`update_account_balance`,
 `add_ledger_entry`, `settle_ledger_entry`, and `set_actual` on a category linked to an account,

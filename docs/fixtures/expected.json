@@ -251,22 +251,5 @@
   "net_reconciliations": 74.5,
   "net_worth": 14584.25,
   "super_liquid": 1859.75
- },
- "meal_plans": {
-  "Day": {
-   "calories": 776,
-   "protein": 86,
-   "fiber": 9,
-   "fat": 13,
-   "cost": 4.62,
-   "monthly_cost": 140.91
-  },
-  "Recipe": {
-   "calories": 340,
-   "protein": 48,
-   "fiber": 0,
-   "fat": 16,
-   "cost": 0
-  }
  }
 }

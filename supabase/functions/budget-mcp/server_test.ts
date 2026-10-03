@@ -78,7 +78,7 @@ Deno.test("MCP over HTTP: initialize, tools/list, tools/call (in-memory)", async
   assertStringIncludes(init.body.result.instructions, "ledger");
   const list = await rpc(h, url, "tools/list", {}, 2, { "mcp-protocol-version": "2025-06-18" });
   const tools = list.body.result.tools;
-  assertEquals(tools.length, 17);
+  assertEquals(tools.length, 16);
   const add = tools.find((t: { name: string }) => t.name === "add_transaction");
   assertEquals(add.inputSchema.type, "object");
   assertEquals(add.inputSchema.required.sort(), ["amount", "category", "item"]);
@@ -186,7 +186,7 @@ Deno.test("Supabase store: token lookup by hash, 401s, and every query scoped to
     assertStringIncludes(hist.body.result.content[0].text, "history starts today");
     assert(calls.some((c) => c.url.pathname === "/rest/v1/net_worth_snapshots" && c.method === "GET"));
 
-    const budgetTables = ["settings", "categories", "months", "budgets", "transactions", "recurring_items", "accounts", "ledger_entries", "meal_plans", "meal_items", "net_worth_snapshots"];
+    const budgetTables = ["settings", "categories", "months", "budgets", "transactions", "recurring_items", "accounts", "ledger_entries", "net_worth_snapshots"];
     const relevant = calls.filter((c) => budgetTables.includes(c.url.pathname.replace("/rest/v1/", "")));
     assert(relevant.length > 5);
     for (const c of relevant) {

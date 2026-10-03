@@ -5,8 +5,7 @@
  "settings": {
   "net_income": 60000,
   "gross_income": 80000,
-  "currency": "USD",
-  "days_per_month": 30.5
+  "currency": "USD"
  },
  "categories": [
   {
@@ -514,74 +513,6 @@
    "note": null,
    "settled": true,
    "sort_order": 2
-  }
- ],
- "meal_plans": [
-  {
-   "id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
-   "name": "Day",
-   "kind": "day",
-   "label": "Deficit",
-   "note": null,
-   "sort_order": 0
-  },
-  {
-   "id": "7daa2e66-3398-5142-ac88-a498d50b2672",
-   "name": "Recipe",
-   "kind": "recipe",
-   "label": null,
-   "note": "1. cook",
-   "sort_order": 1
-  }
- ],
- "meal_items": [
-  {
-   "id": "9f0bba8a-4254-560d-bd80-c230073c56fc",
-   "plan_id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
-   "time_label": "6:00 AM",
-   "name": "Oats",
-   "calories": 375,
-   "protein": 34,
-   "fiber": 9,
-   "fat": 9,
-   "cost": 1.76,
-   "sort_order": 0
-  },
-  {
-   "id": "7747098f-8e7c-538a-9db9-f0e1dd0347cd",
-   "plan_id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
-   "time_label": "12:00 PM",
-   "name": "Chicken",
-   "calories": 231,
-   "protein": 48,
-   "fiber": 0,
-   "fat": 4,
-   "cost": 2.68,
-   "sort_order": 1
-  },
-  {
-   "id": "ddd982e1-39d8-5e0f-9ce3-a05546e731a4",
-   "plan_id": "e03244f6-7a4f-54b6-9e79-412703ab52ee",
-   "time_label": "12:00 PM",
-   "name": "Rice",
-   "calories": 170,
-   "protein": 4,
-   "fiber": null,
-   "fat": null,
-   "cost": 0.18,
-   "sort_order": 2
-  },
-  {
-   "id": "55c25f0d-5160-5b2f-aed3-0805fdbfee8d",
-   "plan_id": "7daa2e66-3398-5142-ac88-a498d50b2672",
-   "time_label": null,
-   "name": "Beef",
-   "calories": 340,
-   "protein": 48,
-   "fiber": null,
-   "fat": 16,
-   "cost": null,
-   "sort_order": 3
   }
  ]
 }

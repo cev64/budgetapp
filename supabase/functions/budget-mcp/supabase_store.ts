@@ -9,8 +9,6 @@ import {
   type Category,
   DEFAULT_SETTINGS,
   type LedgerEntry,
-  type MealItem,
-  type MealPlan,
   type Month,
   type NetWorthSnapshot,
   type RecurringItem,
@@ -54,16 +52,6 @@ function toAccount(r: Row): Account {
 }
 function toLedger(r: Row): LedgerEntry {
   return { ...r, amount: num(r.amount) } as LedgerEntry;
-}
-function toMealItem(r: Row): MealItem {
-  return {
-    ...r,
-    calories: numOrNull(r.calories),
-    protein: numOrNull(r.protein),
-    fiber: numOrNull(r.fiber),
-    fat: numOrNull(r.fat),
-    cost: numOrNull(r.cost),
-  } as MealItem;
 }
 
 function toSnapshot(r: Row): NetWorthSnapshot {
@@ -129,7 +117,6 @@ export class SupabaseStore implements BudgetStore {
       net_income: num(data.net_income),
       gross_income: num(data.gross_income),
       currency: data.currency ?? "USD",
-      days_per_month: num(data.days_per_month),
     };
   }
 
@@ -176,12 +163,6 @@ export class SupabaseStore implements BudgetStore {
   }
   async listLedgerEntries() {
     return (await this.all("ledger_entries")).map(toLedger);
-  }
-  async listMealPlans() {
-    return (await this.all("meal_plans")) as MealPlan[];
-  }
-  async listMealItems() {
-    return (await this.all("meal_items")).map(toMealItem);
   }
 
   async listNetWorthSnapshots(f: { from?: string } = {}) {

@@ -12,8 +12,6 @@ import {
   type Category,
   DEFAULT_SETTINGS,
   type LedgerEntry,
-  type MealItem,
-  type MealPlan,
   type Month,
   type RecurringItem,
   type Settings,
@@ -45,8 +43,6 @@ export class InMemoryStore implements BudgetStore {
   recurring: RecurringItem[];
   accounts: Account[];
   ledger: LedgerEntry[];
-  mealPlans: MealPlan[];
-  mealItems: MealItem[];
   snapshots: NetWorthSnapshot[];
   /** Number of write calls, for tests. */
   writes = 0;
@@ -69,8 +65,6 @@ export class InMemoryStore implements BudgetStore {
     this.recurring = b.recurring_items ?? [];
     this.accounts = b.accounts ?? [];
     this.ledger = b.ledger_entries ?? [];
-    this.mealPlans = b.meal_plans ?? [];
-    this.mealItems = b.meal_items ?? [];
     this.snapshots = b.net_worth_snapshots ?? [];
     this.clock = Math.max(Date.now(), base + this.transactions.length + 1);
   }
@@ -117,12 +111,6 @@ export class InMemoryStore implements BudgetStore {
   }
   listLedgerEntries() {
     return Promise.resolve(this.live(this.ledger));
-  }
-  listMealPlans() {
-    return Promise.resolve(this.live(this.mealPlans));
-  }
-  listMealItems() {
-    return Promise.resolve(this.live(this.mealItems));
   }
 
   listNetWorthSnapshots(f: { from?: string } = {}) {

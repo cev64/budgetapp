@@ -9,8 +9,6 @@ import type {
   Budget,
   Category,
   LedgerEntry,
-  MealItem,
-  MealPlan,
   Month,
   NetWorthSnapshot,
   RecurringItem,
@@ -40,8 +38,6 @@ export interface BudgetStore {
   listRecurringItems(): Promise<RecurringItem[]>;
   listAccounts(): Promise<Account[]>;
   listLedgerEntries(): Promise<LedgerEntry[]>;
-  listMealPlans(): Promise<MealPlan[]>;
-  listMealItems(): Promise<MealItem[]>;
   /** Live net worth snapshots (§5b), ascending by taken_on, optionally from a date (inclusive). */
   listNetWorthSnapshots(filter?: { from?: string }): Promise<NetWorthSnapshot[]>;
 

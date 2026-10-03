@@ -15,7 +15,6 @@ import {
   formatMoney,
   formatPct,
   matchByName,
-  mealPlansView,
   monthView,
   netWorthView,
   planNewMonth,
@@ -98,16 +97,6 @@ Deno.test("net worth matches expected.json", () => {
   near(v.net_worth, e.net_worth, "net_worth");
   near(v.super_liquid, e.super_liquid, "super_liquid");
   assertEquals(v.unsettled.map((x) => x.name), ["Friend owes", "I owe"]);
-});
-
-Deno.test("meal plans match expected.json", () => {
-  const plans = mealPlansView(snap);
-  for (const p of plans) {
-    const e = expected.meal_plans[p.name];
-    for (const k of Object.keys(e)) near((p.totals as unknown as Record<string, number>)[k], e[k], `${p.name}.${k}`);
-    if (p.kind === "recipe") assertEquals(p.totals.monthly_cost, undefined);
-  }
-  assertEquals(plans.length, Object.keys(expected.meal_plans).length);
 });
 
 Deno.test("new month: copies latest expected, adds recurring items clamped to month length", () => {
