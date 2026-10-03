@@ -81,8 +81,13 @@ haptic on Android, the new row tints accent where it lands.
 "LEFTOVER VS PLAN · 2026", hero number = leftover vs plan with sign (numbers token 32/40, coloured
 good/bad, ink at $0), caption "ahead of plan" / "behind plan" / "on plan" in ink-2. Two rows: "Projected"
 and "Planned" with their leftovers right-aligned. An 8px bar = projected / planned (fill `good` when
-≥ 100 %, else `accent`; percent at the right). A wrapping chip row, one chip per month in the year:
-"Jul +$14" (`good`/`bad` text on surface-2) for closed months, "Oct · open" in ink-3 for open months.
+≥ 100 %, else `accent`; percent at the right). Below it, a **collapsed "By month" disclosure**
+(a full-width button: micro-label "BY MONTH" + chevron, `aria-expanded`), closed by default and
+not remembered between visits. Opening it expands *inside the hero card* with the Fluid Glass §7.6
+`grid-template-rows 0fr → 1fr` spring (Android: `AnimatedVisibility` expandVertically + fade, same curves)
+into a compact list, one row per month in the year: month name, a small "closed"/"open" status
+(lock icon), and right-aligned vs-plan amount (`good`/`bad`; open months show "—" in ink-3).
+The chevron rotates 180° when open. No chips.
 Numbers animate (roll/bump) when they change. On expanded widths the hero spans the full content width.
 Then the year switcher, the grouped table (Expected · Actual · Diff), totals, then a smaller
 **Savings rate** card (annualized savings both columns, % of net, % of gross), then the chart.

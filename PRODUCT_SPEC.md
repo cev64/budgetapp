@@ -45,7 +45,8 @@ on web, plus keyboard shortcut `N`).
 ### Year
 - **Hero (top of the page): Leftover vs plan** (DOMAIN_RULES §4b). Big signed number in good/bad
   ("−$45 · behind plan"), then Projected leftover and Planned leftover, a progress bar
-  (projected / planned) and a row of per-month chips (closed months: their vs-plan amount, open months: "open").
+  (projected / planned) and a collapsed **"By month" dropdown** that expands to list each month's vs-plan amount
+  (closed months: amount, open months: "—").
 - Year picker. Table: category, Expected, Actual (projected), Difference, grouped like the sheet.
 - Totals: Expenses, Saved, Leftover.
 - **Savings rate** card, below the table (no longer the headline): annualized savings, % of net and % of gross income (both columns).
