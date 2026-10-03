@@ -4,7 +4,7 @@
 
 ### Changed
 - Year page: the headline is now **leftover vs plan** (signed, green/red, with projected and planned
-  leftover, a progress bar and per-month chips that add up to the year figure). Annualized savings moved
+  leftover, a progress bar and a collapsed "By month" dropdown whose months add up to the year figure). Annualized savings moved
   to a smaller Savings rate card below the table. Same on web and Android; Claude's year summary leads
   with it too.
 

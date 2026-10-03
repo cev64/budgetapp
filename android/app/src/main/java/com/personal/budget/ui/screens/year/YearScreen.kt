@@ -7,6 +7,12 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.heightIn
 import com.personal.budget.ui.components.BudgetProgress
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.collapse
+import androidx.compose.ui.semantics.expand
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -159,6 +165,91 @@ fun YearScreen(main: MainViewModel, onOpenMonth: (MonthKey) -> Unit) {
     }
 }
 
+/** Previews / screenshot tests can render the "By month" list open; the app always starts closed. */
+internal val LocalByMonthInitiallyOpen = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/**
+ * Collapsed "By month" disclosure inside the hero (UI_ANATOMY "Year"): closed by default and not
+ * remembered between visits.
+ * Opens with expandVertically + fade on the spring/ease curves; the chevron rotates 180°.
+ */
+@Composable
+private fun ByMonthDisclosure(y: YearSummary) {
+    val c = Budget.colors
+    val reduce = com.personal.budget.ui.theme.LocalReduceMotion.current
+    val initiallyOpen = LocalByMonthInitiallyOpen.current
+    // Plain remember: closed again on every visit. Fold/unfold and rotation don't recreate the
+    // activity (configChanges), so it still survives them.
+    var open by androidx.compose.runtime.remember(y.year) { androidx.compose.runtime.mutableStateOf(initiallyOpen) }
+    val rotation by androidx.compose.animation.core.animateFloatAsState(
+        if (open) 180f else 0f,
+        if (reduce) androidx.compose.animation.core.tween(0) else androidx.compose.animation.core.tween(Motion.GLIDE, easing = Motion.Spring),
+        label = "chev",
+    )
+    val chevColor by androidx.compose.animation.animateColorAsState(if (open) c.accent else c.ink3, androidx.compose.animation.core.tween(250, easing = Motion.Ease), label = "chevInk")
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .tappable(shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), role = androidx.compose.ui.semantics.Role.Button, onClick = { open = !open })
+                .androidx_semantics(open)
+                .padding(horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MicroLabel("By month", Modifier.weight(1f))
+            AppIcon(Lucide.ChevronDown, null, tint = chevColor, size = 20.dp, modifier = Modifier.graphicsLayer { rotationZ = rotation })
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = open,
+            enter = if (reduce) androidx.compose.animation.EnterTransition.None else
+                androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(Motion.ARRIVE, easing = Motion.Spring), expandFrom = Alignment.Top) +
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(350, delayMillis = 50, easing = Motion.Ease)),
+            exit = if (reduce) androidx.compose.animation.ExitTransition.None else
+                androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween((Motion.ARRIVE * Motion.EXIT_FACTOR).toInt(), easing = Motion.Ease), shrinkTowards = Alignment.Top) +
+                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200, easing = Motion.Ease)),
+        ) {
+            Column(Modifier.padding(top = 2.dp)) {
+                y.months.forEachIndexed { i, m ->
+                    if (i > 0) com.personal.budget.ui.components.Hairline()
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(m.key.name, style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
+                        AppIcon(if (m.closed) Lucide.Lock else Lucide.LockOpen, null, tint = c.ink3, size = 14.dp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (m.closed) "closed" else "open", style = Budget.type.secondary, color = c.ink3)
+                        Spacer(Modifier.width(12.dp))
+                        if (m.closed) {
+                            val d = m.vsPlan
+                            AnimatedMoney(
+                                d,
+                                style = Budget.type.tableNumber,
+                                color = when {
+                                    kotlin.math.abs(d) < 0.005 -> c.ink2
+                                    d > 0 -> c.good
+                                    else -> c.bad
+                                },
+                                format = { Money.formatSigned(it) },
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.widthIn(min = 88.dp),
+                            )
+                        } else {
+                            Text("—", style = Budget.type.tableNumber, color = c.ink3, textAlign = TextAlign.End, modifier = Modifier.widthIn(min = 88.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun Modifier.androidx_semantics(open: Boolean) = this.then(
+    Modifier.semantics {
+        contentDescription = "By month"
+        stateDescription = if (open) "Expanded" else "Collapsed"
+        if (open) collapse { false } else expand { false }
+    },
+)
+
 /**
  * DOMAIN_RULES §4b / UI_ANATOMY "Year": the headline is how far the projected leftover is ahead of
  * or behind the plan, with projected / planned rows, a progress bar and one chip per month.
@@ -213,37 +304,8 @@ private fun LeftoverVsPlanHero(y: YearSummary) {
                 Text(com.personal.budget.domain.usecase.Percent.format(p).replace(".0%", "%"), style = Budget.type.secondary, color = c.ink2)
             }
         }
-        Spacer(Modifier.height(12.dp))
-        androidx.compose.foundation.layout.FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            y.months.forEach { m ->
-                val text: String
-                val ink: androidx.compose.ui.graphics.Color
-                if (m.closed) {
-                    val d = m.vsPlan
-                    text = "${m.key.shortName} ${Money.formatSigned(d)}"
-                    ink = when {
-                        kotlin.math.abs(d) < 0.005 -> c.ink2
-                        d > 0 -> c.good
-                        else -> c.bad
-                    }
-                } else {
-                    text = "${m.key.shortName} · open"
-                    ink = c.ink3
-                }
-                Text(
-                    text,
-                    style = Budget.type.secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
-                    color = ink,
-                    modifier = Modifier
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(99.dp))
-                        .background(c.surface2)
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                )
-            }
-        }
+        Spacer(Modifier.height(8.dp))
+        ByMonthDisclosure(y)
     }
 }
 

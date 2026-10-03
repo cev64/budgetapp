@@ -125,7 +125,18 @@ class ScreenshotTest {
         }
     }
 
-    @Test fun year() = all("year", Routes.YEAR)
+    @Test fun year() {
+        all("year", Routes.YEAR)
+        for ((size, q) in listOf("compact" to compact, "fold" to medium)) {
+            for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+                shoot("year-bymonth-$size-${theme.key}", q, theme) { vm ->
+                    androidx.compose.runtime.CompositionLocalProvider(com.personal.budget.ui.screens.year.LocalByMonthInitiallyOpen provides true) {
+                        AppShell(vm, navController = rememberNavController(), startRoute = Routes.YEAR)
+                    }
+                }
+            }
+        }
+    }
 
     @Test fun netWorth() = all("networth", Routes.NET_WORTH)
 
