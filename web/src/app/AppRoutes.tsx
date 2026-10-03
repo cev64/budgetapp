@@ -5,6 +5,7 @@ import { MonthIndex, MonthScreen } from '../screens/Month';
 import { YearScreen } from '../screens/Year';
 import { NetWorthScreen } from '../screens/NetWorth';
 import { SettingsScreen } from '../screens/Settings';
+import { SheetIndex, SheetScreen } from '../screens/Sheet';
 
 export function AppRoutes() {
   return (
@@ -19,6 +20,8 @@ export function AppRoutes() {
           <Route path="year" element={<YearScreen />} />
           <Route path="year/:year" element={<YearScreen />} />
           <Route path="networth" element={<NetWorthScreen />} />
+          <Route path="sheet" element={<SheetIndex />} />
+          <Route path="sheet/:year/:tab" element={<SheetScreen />} />
           <Route path="settings" element={<SettingsScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -70,6 +70,7 @@ web/
       networth.ts            §5 net worth, super liquid, reconciliations, linked accounts
       history.ts             §5b net worth history: changeOver, ranges (1M/3M/6M/1Y/All), series, per-account
       categoryStyle.ts       category colour + symbol from design/tokens.json (palette + assignment)
+      sheet.ts               Sheet view layout: left-block rows, ledger block → column mapping, ledger order
       newMonth.ts            §6 new-month rows (budgets copied forward, recurring items, day clamped)
       format.ts              §8 money (whole dollars from $1,000) / percent / tone, parsing, brand voice strings
       backup.ts              backup JSON build / parse / merge plan (SYNC.md)
@@ -82,7 +83,8 @@ web/
       demoHistory.ts         synthetic net worth history for demo mode
       supabase.ts, demo.ts, safeStorage.ts
     app/                     Root (auth gate), routes, Shell (nav, top bar, add sheet), session context
-    screens/                 Home, Month (+ CategoryDetail), Year, NetWorth (+ NetWorthHistory), Settings, Auth,
+    screens/                 Home, Month (+ CategoryDetail), Year, NetWorth (+ NetWorthHistory), Sheet (+ sheetGrid),
+                             Settings, Auth,
                              TransactionSheet, McpSection
     ui/                      Fluid Glass kit: motion.ts (tint, glideIndicator, rollText, FLIP), Seg,
                              Sheet + ask(), Toast, Menu, FlipList, Num, controls, theme, Brand (logo),
@@ -168,7 +170,7 @@ Brand: the side nav shows the logo lockup and the rail / sign-in screen show the
 the exact strings from UI_ANATOMY "Brand (v2)" (saved / over-budget / month-closed / empty month / sign-in).
 Money display follows DOMAIN_RULES §8: whole dollars from $1,000 up; edit fields show the exact value. The dark theme follows
 `prefers-color-scheme` unless Settings → Appearance sets Light or Dark (`data-theme` on `<html>`,
-stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a floating glass bottom bar (Home, Month, Year, Net worth) with a
+stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a floating glass bottom bar (Home, Month, Year, Net worth, Sheet) with a
 round Add button above it; 600–1023px an 80px rail with Add on top; from 1024px a 220px side nav, an Add button
 in the top bar, and multi-pane screens (Month list + category detail, Year tables + chart, Net worth accounts and
 ledger side by side). Phone width (412px, Galaxy Fold cover) is a primary target, and nothing scrolls
@@ -191,6 +193,19 @@ the app opens and stays readable offline.
 `config/**`: `npm ci`, typecheck, `vitest run`, build. On `main` it uploads `web/dist` with
 `actions/upload-pages-artifact` and publishes it with `actions/deploy-pages`. One-time setup: repo
 **Settings → Pages → Source: GitHub Actions**.
+
+## Sheet view
+
+`#/sheet` (and `#/sheet/:year/:tab`, tab = `summary` or a month number; the last tab is remembered for the
+session) rebuilds the original spreadsheet per `docs/SHEET_VIEW.md`. `src/domain/sheet.ts` decides where
+things go (rows 3 / 5–13 / 15–18 / 20–22 / 23 with the default categories; ledger blocks in G·K·O, unknown
+ledger categories appended to the shortest column; ledger rows by date, undated last, then creation order).
+`src/screens/sheetGrid.ts` turns that into a cell matrix wired to the existing actions (budgets, overrides,
+transactions with undo, month closed, account balances, ledger entries + settle, "+" = next month); the
+numbers all come from the domain calc, and Summary row 22's Difference is the leftover vs plan (§4b).
+`Sheet.tsx` renders a real `<table role="grid">` with roving tabindex, arrows/Tab/Enter/F2/Escape, typing
+to edit, right-click / ⋮ / Shift+F10 menus, sticky B–E columns while the ledgers scroll, and a bottom glass
+tab bar (year switcher, Summary + months, "+"). Below 600px it shows the "needs a wider screen" card.
 
 ## Removed: Meals
 

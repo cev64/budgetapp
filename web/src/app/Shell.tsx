@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router';
-import { CalendarDays, ChartColumn, House, Landmark, Plus, Settings, type LucideIcon } from 'lucide-react';
+import { CalendarDays, ChartColumn, House, Landmark, Plus, Settings, Sheet as SheetIcon, type LucideIcon } from 'lucide-react';
 import { SheetContext, useSession, useSheets, useStoreState, type SheetApi } from './session';
 import { TransactionSheet, type TxSheetState } from '../screens/TransactionSheet';
 import { useGlide, useLayoutMode } from '../ui/hooks';
@@ -14,12 +14,13 @@ interface NavItem {
   end?: boolean;
 }
 
-/** Same names, same order as Android (PRODUCT_SPEC): four destinations. */
+/** Same names, same order as Android (PRODUCT_SPEC, UI_ANATOMY): five destinations. */
 const NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: House, end: true },
   { to: '/month', label: 'Month', icon: CalendarDays },
   { to: '/year', label: 'Year', icon: ChartColumn },
   { to: '/networth', label: 'Net worth', icon: Landmark },
+  { to: '/sheet', label: 'Sheet', icon: SheetIcon },
 ];
 
 const ICON = { size: 20, strokeWidth: 1.75 } as const;
@@ -27,6 +28,8 @@ const ICON = { size: 20, strokeWidth: 1.75 } as const;
 /** Add-sheet defaults from the route: the month (and category) being viewed. */
 function addDefaultsFor(pathname: string): Parameters<SheetApi['openAdd']>[0] {
   const m = /^\/month\/(\d{4})-(\d{2})(?:\/c\/([^/]+))?/.exec(pathname);
+  const sheet = /^\/sheet\/(\d{4})\/(\d{1,2})$/.exec(pathname);
+  if (sheet) return { ym: { year: Number(sheet[1]), month: Number(sheet[2]) } };
   return m ? { ym: { year: Number(m[1]), month: Number(m[2]) }, categoryId: m[3] } : {};
 }
 
@@ -74,12 +77,14 @@ export function Shell() {
     }
   }, [params, setParams, api]);
 
+  // The Sheet wants every pixel: the 220px side nav collapses to the 80px rail there (restored on leaving).
+  const navMode = useNavMode();
   const openAdd = useCallback(() => api.openAdd(addDefaultsRef.current), [api]);
 
   return (
     <SheetContext.Provider value={api}>
-      <div className={`shell ${mode}`}>
-        {mode !== 'compact' && <SideNav mode={mode} onAdd={openAdd} />}
+      <div className={`shell ${navMode}`}>
+        {navMode !== 'compact' && <SideNav mode={navMode} onAdd={openAdd} />}
         <div className="main">
           <Outlet />
         </div>
@@ -106,7 +111,7 @@ function SideNav({ mode, onAdd }: { mode: 'medium' | 'expanded'; onAdd: () => vo
       )}
       <div ref={ref} className="nav-list">
         {NAV.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.end} className="nav-item">
+          <NavLink key={n.to} to={n.to} end={n.end} className="nav-item" title={mode === 'medium' ? n.label : undefined}>
             <n.icon {...ICON} />
             <span>{n.label}</span>
           </NavLink>
@@ -150,10 +155,17 @@ interface PageProps {
 }
 
 /** Screen frame: sticky glass top bar (shadow once content scrolls under it) and the content column. */
+/** Layout mode for navigation: like useLayoutMode, but the Sheet route uses the rail instead of the side nav. */
+function useNavMode() {
+  const mode = useLayoutMode();
+  const { pathname } = useLocation();
+  return mode === 'expanded' && pathname.startsWith('/sheet') ? 'medium' : mode;
+}
+
 export function Page({ label, title, actions, children, className }: PageProps) {
   const sentinel = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
-  const mode = useLayoutMode();
+  const navMode = useNavMode();
   const { openAdd } = useSheets();
   const location = useLocation();
   useEffect(() => {
@@ -176,7 +188,7 @@ export function Page({ label, title, actions, children, className }: PageProps) 
           <div className="topbar-actions">
             {actions}
             <SyncIndicator />
-            {mode === 'expanded' && (
+            {navMode === 'expanded' && (
               <button
                 type="button"
                 className="btn primary add-top"
