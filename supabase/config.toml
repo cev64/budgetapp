@@ -1,0 +1,10 @@
+# Supabase CLI configuration (partial: everything not listed uses the CLI defaults).
+project_id = "budgetapp"
+
+# Remote MCP server (docs/MCP.md). It authenticates callers itself with personal access
+# tokens (public.mcp_tokens), because MCP clients such as claude.ai custom connectors cannot
+# send a Supabase JWT. The platform's JWT check must therefore be off for this function.
+[functions.budget-mcp]
+verify_jwt = false
+entrypoint = "./functions/budget-mcp/index.ts"
+import_map = "./functions/budget-mcp/deno.json"

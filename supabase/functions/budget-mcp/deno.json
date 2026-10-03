@@ -1,0 +1,19 @@
+{
+  "$comment": "Source files import pinned npm:/jsr: specifiers directly (see deps.ts) so the function also deploys without an import map; these entries mirror the same pins.",
+  "imports": {
+    "@modelcontextprotocol/sdk/": "npm:/@modelcontextprotocol/sdk@1.31.0/",
+    "zod": "npm:zod@4.6.5",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.117.2",
+    "@std/assert": "jsr:@std/assert@1.0.19"
+  },
+  "lint": {
+    "rules": { "exclude": ["no-import-prefix"] }
+  },
+  "fmt": { "lineWidth": 140 },
+  "tasks": {
+    "test": "deno test --allow-read --allow-env ../_shared/ .",
+    "check": "deno check index.ts ../_shared/domain.ts",
+    "lint": "deno lint . ../_shared",
+    "dev:fake": "BUDGET_MCP_FAKE=1 deno run --allow-net --allow-env --allow-read index.ts"
+  }
+}
