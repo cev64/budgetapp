@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+- **Sheet view**: a fifth tab that lays the budget out exactly like the original Google Sheet (Summary +
+  month tabs, the same rows and ledger columns), editable where the sheet had typed values. On the folded
+  phone it asks you to unfold and switches to the sheet in place when you do; on the web it needs a window
+  at least 600px wide. Spec: `docs/SHEET_VIEW.md`.
+
 ## 1.1.0
 
 ### Changed

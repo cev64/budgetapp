@@ -138,6 +138,27 @@ class ScreenshotTest {
         }
     }
 
+    @Test fun sheet() {
+        for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            shoot("sheet-prompt-compact-${theme.key}", compact, theme, shell(Routes.SHEET))
+        }
+        val portrait = "w900dp-h1100dp-xhdpi"
+        for ((size, q) in listOf("fold-portrait" to portrait, "landscape" to expanded)) {
+            for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+                shoot("sheet-summary-$size-${theme.key}", q, theme) { vm ->
+                    val svm = appViewModel { c, h -> com.personal.budget.ui.screens.sheet.SheetViewModel(c, h) }
+                    androidx.compose.runtime.LaunchedEffect(Unit) { svm.selectTab(com.personal.budget.ui.screens.sheet.SheetViewModel.SUMMARY) }
+                    AppShell(vm, navController = rememberNavController(), startRoute = Routes.SHEET)
+                }
+                shoot("sheet-month-$size-${theme.key}", q, theme) { vm ->
+                    val svm = appViewModel { c, h -> com.personal.budget.ui.screens.sheet.SheetViewModel(c, h) }
+                    androidx.compose.runtime.LaunchedEffect(Unit) { svm.selectMonth(MonthKey.now()) }
+                    AppShell(vm, navController = rememberNavController(), startRoute = Routes.SHEET)
+                }
+            }
+        }
+    }
+
     @Test fun netWorth() = all("networth", Routes.NET_WORTH)
 
     @Test fun settings() = all("settings", Routes.SETTINGS)
