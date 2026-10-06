@@ -150,12 +150,12 @@ code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: va
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; min-width: 210px; padding: 6px; border-radius: var(--r-menu);
   background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
   box-shadow: var(--glass-hi), var(--glass-edge), var(--glass-shadow-lg);
-  transform-origin: top right; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px) scale(.9); filter: blur(2px);
-  transition: opacity .16s var(--ease), transform .2s var(--ease), filter .16s var(--ease), visibility 0s linear .2s;
+  transform-origin: top right; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px) scale(.9);
+  transition: opacity .16s var(--ease), transform .2s var(--ease), visibility 0s linear .2s;
 }
 .menu.open {
-  opacity: 1; visibility: visible; pointer-events: auto; transform: none; filter: none;
-  transition: opacity .2s var(--ease), transform .35s var(--spring), filter .25s var(--ease), visibility 0s;
+  opacity: 1; visibility: visible; pointer-events: auto; transform: none;
+  transition: opacity .2s var(--ease), transform .35s var(--spring), visibility 0s;
 }
 .menu.measure { transition: none !important; transform: none }
 .menu.open > * { animation: piIn .3s var(--ease) both; animation-delay: calc(var(--i) * 30ms + 50ms) }
@@ -172,15 +172,14 @@ code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: va
 /* ---- modal + sheet ---- */
 .modal {
   position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px;
-  opacity: 0; transition: opacity .25s var(--ease);
 }
 .modal::before {
-  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: var(--scrim-o, 1);
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; will-change: opacity;
   background: var(--scrim); -webkit-backdrop-filter: blur(6px) saturate(1.2); backdrop-filter: blur(6px) saturate(1.2);
-  transition: opacity .2s var(--ease);
+  transition: opacity .28s var(--ease);
 }
-.modal { isolation: isolate }
-.modal.open { opacity: 1 }
+.modal.open::before { opacity: var(--scrim-o, 1) }
+.modal:not(.open)::before { transition-duration: .2s }
 .sheet {
   position: relative; background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
   border-radius: var(--r-sheet); max-width: 440px; width: 100%; padding: 22px 24px 20px;
@@ -189,7 +188,6 @@ code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: va
   max-height: calc(100dvh - 40px); display: flex; flex-direction: column; outline: none;
 }
 .modal:not(.open) .sheet { transition: transform .22s var(--ease), opacity .18s var(--ease) }
-.modal:not(.open) { transition: opacity .2s var(--ease) }
 .sheet.wide { max-width: 560px }
 .modal.open .sheet { transform: none; opacity: 1 }
 .sheet.dragging { transition: none !important }
@@ -235,3 +233,4 @@ code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: va
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important }
 }
+.modal-lock .backdrop i { animation-play-state: paused }

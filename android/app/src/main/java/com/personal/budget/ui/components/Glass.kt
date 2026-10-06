@@ -5,11 +5,17 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -22,7 +28,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.LinearGradientShader
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.asAndroidPath
@@ -32,6 +41,9 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.personal.budget.ui.theme.Budget
@@ -43,6 +55,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.HazeColorEffect
 import dev.chrisbanes.haze.blur.hazeBlur
+import kotlinx.coroutines.flow.first
 
 /*
  * Fluid glass v2 (docs/FLUID_GLASS_UI.md §3–4): a soft ambient field behind everything, content on
@@ -160,11 +173,121 @@ fun Modifier.blurredGlass(state: HazeState?, shape: Shape, alpha: Float = 1f): M
     }
 }
 
+/** `--bar-fade`: how far below the top bar its tint and blur ease out to nothing. */
+val BarFade = 28.dp
+
+/**
+ * What sits behind the condensed top bar (v2 §5): a progressive fade, not a panel. The tint (page
+ * 92% → 84% at the bar's bottom edge) and the 24dp blur run solid behind the bar (status bar
+ * included), then ease out to fully transparent over [BarFade] below it, so content dissolves under
+ * the bar instead of being cut at a line. No shadow, no hairline, no hard bottom edge.
+ *
+ * Android 12+: Haze blur of [state] masked with the same fade. Below 12 (and in headless
+ * screenshots) the tint gradient alone: the page tone, opaque behind the bar since nothing is
+ * blurred under it, easing out over the same [BarFade].
+ * [alpha] (the condense transition) is Haze's own alpha or the gradient's draw alpha: never a
+ * graphicsLayer around the blurred layer.
+ */
+@Composable
+fun BoxScope.TopBarBackdrop(state: HazeState?, alpha: () -> Float) {
+    val c = Budget.colors
+    val blur = state != null && glassSupported && !isRobolectric
+    val fadePx = with(LocalDensity.current) { BarFade.toPx() }
+    val area = Modifier.matchParentSize().extendBelow(BarFade)
+    if (blur) {
+        val a = alpha()
+        val tint = remember(c.page, fadePx) { BarFadeBrush(fadePx, c.page.copy(alpha = .92f), c.page.copy(alpha = .84f)) }
+        val mask = remember(fadePx) { BarFadeBrush(fadePx, Color.Black, Color.Black) }
+        Box(
+            area.hazeBlur(
+                HazeInput.Sources(state!!),
+                HazeBlurStyle {
+                    blurRadius(24.dp)
+                    noiseFactor(0f)
+                    backgroundColor(c.page)
+                    colorEffects(listOf(HazeColorEffect.tint(tint)))
+                    mask(mask)
+                    alpha(a)
+                },
+            ),
+        )
+    } else {
+        // Without a blur nothing may show through behind the bar; below it the tint fades the way tint × mask does above.
+        val fade = remember(c.page, fadePx) { BarFadeBrush(fadePx, c.page, c.page, squared = true) }
+        Box(
+            area.drawBehind {
+                val a = alpha()
+                if (a > 0f) drawRect(fade, alpha = a)
+            },
+        )
+    }
+}
+
+/** Lays the node out [extra] taller than its parent, overflowing downwards; the parent keeps its size. */
+private fun Modifier.extendBelow(extra: Dp): Modifier = layout { measurable, constraints ->
+    val w = constraints.maxWidth
+    val h = constraints.maxHeight
+    val placeable = measurable.measure(Constraints.fixed(w, h + extra.roundToPx()))
+    layout(w, h) { placeable.place(0, 0) }
+}
+
+/**
+ * Vertical fade sized to whatever it paints: [top] → [edge] down to the bar's bottom edge (the
+ * height less [fadePx]), then out to transparent over [fadePx]. [squared] eases the fade like a
+ * linear tint under a linear mask (the blurred path), for the tint-only fallback.
+ */
+private class BarFadeBrush(
+    private val fadePx: Float,
+    private val top: Color,
+    private val edge: Color,
+    private val squared: Boolean = false,
+) : ShaderBrush() {
+    override fun createShader(size: Size): Shader {
+        val solid = if (size.height > 0f) ((size.height - fadePx) / size.height).coerceIn(0f, 1f) else 0f
+        val colors = if (squared) {
+            listOf(top, edge, edge.copy(alpha = edge.alpha * .25f), edge.copy(alpha = 0f))
+        } else {
+            listOf(top, edge, edge.copy(alpha = 0f))
+        }
+        val stops = if (squared) listOf(0f, solid, solid + (1f - solid) * .5f, 1f) else listOf(0f, solid, 1f)
+        return LinearGradientShader(Offset.Zero, Offset(0f, size.height), colors, stops)
+    }
+
+    override fun equals(other: Any?): Boolean =
+        other is BarFadeBrush && other.fadePx == fadePx && other.top == top && other.edge == edge && other.squared == squared
+
+    override fun hashCode(): Int = ((fadePx.hashCode() * 31 + top.hashCode()) * 31 + edge.hashCode()) * 31 + squared.hashCode()
+}
+
+/**
+ * Sheets, dialogs and menus that are open right now. The ambient drift pauses while any is, so the
+ * blurred chrome and sheet glass aren't re-rendered under an opening overlay (that re-render, every
+ * tick of the drift, is what made the sheet's blur step instead of glide in).
+ */
+object OpenOverlays {
+    var count by mutableIntStateOf(0)
+        private set
+
+    internal fun opened() { count++ }
+    internal fun closed() { count = (count - 1).coerceAtLeast(0) }
+}
+
+/** Marks an overlay open while this is composed and [open]: the ambient drift holds still meanwhile. */
+@Composable
+fun PauseAmbientDrift(open: Boolean = true) {
+    if (!open) return
+    DisposableEffect(Unit) {
+        OpenOverlays.opened()
+        onDispose { OpenOverlays.closed() }
+    }
+}
+
 /**
  * The ambient field (§3): page base plus three soft radial blobs drifting slowly (36 / 44 / 52 s,
  * alternate, ease-in-out). Static with "Remove animations". The drift is so slow (≈ 0.1 px per
  * frame) that it is sampled at ~12 fps: the field only redraws (no recomposition), and the device
- * isn't asked for 60 fps just for the background.
+ * isn't asked for 60 fps just for the background. It holds still while a sheet, dialog or menu is
+ * open ([PauseAmbientDrift]) and resumes where it left off.
  */
 @Composable
 fun AmbientBackdrop(modifier: Modifier = Modifier) {
@@ -173,14 +296,17 @@ fun AmbientBackdrop(modifier: Modifier = Modifier) {
     val clock = remember { mutableLongStateOf(0L) }
     if (!still) {
         LaunchedEffect(Unit) {
-            val start = withFrameMillis { it }
-            var last = 0L
+            var elapsed = clock.longValue
+            var prev = withFrameMillis { it }
             while (true) {
+                if (OpenOverlays.count > 0) {
+                    snapshotFlow { OpenOverlays.count }.first { it == 0 }
+                    prev = withFrameMillis { it }
+                }
                 withFrameMillis { now ->
-                    if (now - last >= 83L) {
-                        last = now
-                        clock.longValue = now - start
-                    }
+                    elapsed += now - prev
+                    prev = now
+                    if (elapsed - clock.longValue >= 83L) clock.longValue = elapsed
                 }
             }
         }

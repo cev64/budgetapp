@@ -95,10 +95,22 @@ body:has(.dock) .toast { bottom: calc(88px + env(safe-area-inset-bottom)) }
 @media (max-width: 370px) { .bottom-nav .nav-item { padding-left: 4px; padding-right: 4px; letter-spacing: -.2px } }
 
 /* ---- top bar: transparent at rest, glass + compact title once the large title scrolls under ---- */
-.topbar { position: sticky; top: 0; z-index: 30; height: 52px }
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  height: calc(52px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top);
+}
+/* Progressive fade, not a hard-edged panel: the tint and the blur run solid behind the bar, then
+   ease out over --bar-fade below it, so content dissolves under the bar instead of being cut off. */
 .topbar::before {
-  content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity .2s var(--ease);
-  background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--bar-shadow);
+  content: ''; position: absolute; inset: 0 0 calc(-1 * var(--bar-fade)); z-index: -1; pointer-events: none;
+  opacity: 0; transition: opacity .25s var(--ease);
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--page) 92%, transparent) 0%,
+    color-mix(in srgb, var(--page) 84%, transparent) calc(100% - var(--bar-fade)),
+    color-mix(in srgb, var(--page) 0%, transparent) 100%);
+  -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--bar-fade)), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--bar-fade)), transparent);
 }
 .topbar.condensed::before { opacity: 1 }
 .topbar-inner { max-width: 1240px; height: 100%; margin: 0 auto; padding: 0 8px 0 16px; display: flex; align-items: center; gap: 10px }

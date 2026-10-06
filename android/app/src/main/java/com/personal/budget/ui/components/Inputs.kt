@@ -264,6 +264,7 @@ fun BudgetDialog(
 ) {
     val c = Budget.colors
     val reduce = LocalReduceMotion.current
+    PauseAmbientDrift()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val appear = remember { Animatable(if (reduce) 1f else 0f) }
         LaunchedEffect(Unit) { appear.animateTo(1f, tween(Motion.SHEET_IN, easing = Motion.Spring)) }

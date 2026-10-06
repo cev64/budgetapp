@@ -290,6 +290,7 @@ fun SheetCell(
         }
         if (actions.isNotEmpty()) {
             // Menus (v2 §4): radius 18, strong-glass tone (opaque here: a popup window can't blur), soft shadow.
+            com.personal.budget.ui.components.PauseAmbientDrift(menuOpen)
             DropdownMenu(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },

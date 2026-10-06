@@ -321,13 +321,18 @@ Values from `docs/FLUID_GLASS_UI.md` (v2, shared with Bets) live in `ui/theme/To
 thumb, blob tokens, radii 20/28/18/12/pill, spring-soft curve and durations).
 
 - **Backdrop:** `AmbientBackdrop` behind the shell (and sign-in): page tone plus three radial blobs that
-  drift over 36/44/52 s, sampled at ~12 fps (draw-only); static with "Remove animations".
+  drift over 36/44/52 s, sampled at ~12 fps (draw-only); static with "Remove animations". The drift
+  holds still while a sheet, dialog or menu is open (`PauseAmbientDrift`), so nothing re-renders the
+  blur under an overlay while it animates in.
 - **Glass:** cards are translucent glass (hairline highlight + two-layer soft shadow). The floating nav,
-  rail, collapsed top bar, Sheet tab bar and Add sheet blur what is behind them with Haze
-  (RenderEffect) on Android 12+; below 12 (and in Robolectric renders) they use the opaque strong-glass
-  tone. Dialogs, menus and chart tooltips use that opaque tone too (their own window / busy content).
+  rail, Sheet tab bar and Add sheet blur what is behind them with Haze (RenderEffect) on Android 12+;
+  below 12 (and in Robolectric renders) they use the opaque strong-glass tone. The Add sheet's blur is
+  fixed (24dp); only its position and the scrim's own alpha animate, the scrim following the drag. Dialogs, menus and chart tooltips use that opaque tone too (their own window / busy content).
 - **Chrome:** each screen starts with a large title (micro label + Barlow 40); the 52dp top bar is
-  transparent until the title scrolls under, then turns to glass with a compact Inter 17 title.
+  transparent until the title scrolls under, then a compact Inter 17 title fades in over a progressive
+  fade, not a panel (`TopBarBackdrop`): page tint 92 → 84 % and a 24dp blur run solid behind the bar
+  (status bar included) and ease out to nothing over 28dp below it, with no shadow or hairline. On
+  Android 12+ the blur is masked with that fade; below 12 the page-tone gradient alone.
 - **Gestures:** swipe a transaction row left to delete (arms at 96dp / 30 %, haptic tick, Undo toast;
   accessibility action "Delete"); drag the Add sheet's grabber/header down to dismiss (120dp or
   0.6 dp/ms); charts scrub with a glass tooltip and a haptic tick per step.
