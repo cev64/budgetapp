@@ -136,7 +136,7 @@ body:has(.bottom-nav) .toast { bottom: calc(160px + env(safe-area-inset-bottom))
 @media (hover: hover) { .row:not(.row-static):hover { background: var(--surface) } }
 .row:not(.row-static):active { transform: scale(.99) }
 .row-static { cursor: default }
-.row.selected { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent) }
+.row.selected { background: var(--accent-soft) }
 .faded { opacity: .5 }
 .group-label { margin: 10px 0 2px }
 .cat-sym { flex: none; display: inline-block; overflow: visible }

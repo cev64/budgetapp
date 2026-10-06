@@ -36,8 +36,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalView
@@ -374,7 +372,6 @@ private fun CategoryRow(line: CategoryLine, compact: Boolean, colW: Dp, selected
             .fillMaxWidth()
             .tappable(shape = RectangleShape, onClick = onClick, label = "Open ${line.category.name}")
             .background(bg)
-            .then(if (selected) Modifier.selectedBar(c.accent) else Modifier)
             .heightIn(min = 48.dp)
             .padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
@@ -422,10 +419,6 @@ private fun CategoryRow(line: CategoryLine, compact: Boolean, colW: Dp, selected
             )
         }
     }
-}
-
-private fun Modifier.selectedBar(color: Color) = drawBehind {
-    drawRect(color, size = Size(3.dp.toPx(), size.height))
 }
 
 @Composable
