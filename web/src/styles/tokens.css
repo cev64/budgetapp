@@ -3,6 +3,7 @@
    --accent-ink is the pressed accent (accent text on soft fills, primary hover/pressed). */
 
 :root {
+  --bar-fade: 28px;
   --bg: #FFFFFF;
   --card: #FFFFFF;
   --surface: #F6F8FC;
@@ -137,6 +138,7 @@
 
 /* ---- Fluid glass v2 (docs/FLUID_GLASS_UI.md §2–§4): ambient field, glass, quiet fills, raised thumbs ---- */
 :root {
+  --bar-fade: 28px;
   --page: #F4F6FB;
   --blob-a: rgba(16, 89, 252, .07);
   --blob-b: rgba(99, 102, 241, .05);
