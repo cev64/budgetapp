@@ -61,7 +61,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onPlaced
@@ -140,8 +139,9 @@ val TopBarHeight = 52.dp
 
 /**
  * Collapsing top bar (FLUID_GLASS v2 §5): 52dp, transparent at rest while the page shows its
- * [LargeTitle]; once that scrolls under ([scrolled]), the bar turns blurred `glass-strong` with a
- * soft bottom shadow and the compact title (Inter 17/600) cross-fades in (200 ms). Sync dot and
+ * [LargeTitle]; once that scrolls under ([scrolled]), a tinted blur fades in behind the bar and eases
+ * out over [BarFade] below it ([TopBarBackdrop]: no panel edge, no shadow) and the compact title
+ * (Inter 17/600) cross-fades in (200 ms). Sync dot and
  * Settings stay on the right. [titleAlways] keeps the compact title visible (screens without a
  * large title, e.g. a detail pane).
  */
@@ -160,13 +160,7 @@ fun GlassTopBar(
     val a by animateFloatAsState(if (scrolled) 1f else 0f, if (reduce) tween(0) else tween(Motion.BAR_CONDENSE, easing = Motion.Ease), label = "barGlass")
     val titleA by animateFloatAsState(if (scrolled || titleAlways) 1f else 0f, if (reduce) tween(0) else tween(Motion.BAR_CONDENSE, easing = Motion.Ease), label = "barTitle")
     Box(modifier.fillMaxWidth()) {
-        Box(
-            Modifier
-                .matchParentSize()
-                .graphicsLayer { alpha = a }
-                .softShadow(RectangleShape, c.shadow.copy(alpha = if (c.isDark) .5f else .18f), 24.dp, 8.dp, (-12).dp)
-                .blurredGlass(LocalFrameHaze.current, RectangleShape),
-        )
+        TopBarBackdrop(LocalFrameHaze.current) { a }
         Row(
             Modifier
                 .fillMaxWidth()

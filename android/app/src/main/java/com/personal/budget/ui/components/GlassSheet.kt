@@ -98,6 +98,8 @@ fun GlassSheet(
         }
     }
 
+    // Nothing under the sheet moves while it is open, so its blur is rendered as it slides, not re-rendered per drift tick.
+    PauseAmbientDrift()
     LaunchedEffect(Unit) {
         if (reduce) state.appear.snapTo(1f) else state.appear.animateTo(1f, tween(Motion.SHEET_IN, easing = Motion.Spring))
     }

@@ -415,6 +415,7 @@ private fun SheetDatePicker(initial: String?, onPick: (String?) -> Unit, onDismi
     val c = Budget.colors
     val start = initial?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
     val state = rememberDatePickerState(initialSelectedDateMillis = start.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
+    com.personal.budget.ui.components.PauseAmbientDrift()
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
