@@ -27,23 +27,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -60,9 +60,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -73,15 +70,19 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.personal.budget.ui.theme.Budget
 import com.personal.budget.ui.theme.LocalReduceMotion
 import com.personal.budget.ui.theme.Motion
+import com.personal.budget.ui.theme.Radius
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 /** What the sync dot shows (docs/UI_ANATOMY.md top bar). */
 sealed interface SyncIndicator {
@@ -93,11 +94,8 @@ sealed interface SyncIndicator {
     data object LocalOnly : SyncIndicator
 }
 
-/** Padding the app shell reserves (bottom bar on compact) that screens add inside their scroll. */
+/** Padding the app shell reserves (floating bottom nav on compact) that screens add inside their scroll. */
 val LocalShellPadding = staticCompositionLocalOf { PaddingValues(0.dp) }
-
-/** The rail shows the brand mark on medium/expanded, so the top bar only shows it on compact. */
-val LocalShowMarkInTopBar = staticCompositionLocalOf { true }
 
 /** Whether the app shell is showing the top-bar Settings gear etc. */
 val LocalShowSettingsGear = staticCompositionLocalOf { true }
@@ -125,7 +123,7 @@ fun SyncDot(indicator: SyncIndicator, modifier: Modifier = Modifier) {
     } else {
         1f
     }
-    Box(modifier.size(9.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(animated))
+    Box(modifier.size(8.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(animated))
 }
 
 fun SyncIndicator.describe(): String = when (this) {
@@ -137,71 +135,107 @@ fun SyncIndicator.describe(): String = when (this) {
     SyncIndicator.LocalOnly -> "Not syncing"
 }
 
+/** Height of the compact top bar (below the status bar). */
+val TopBarHeight = 52.dp
+
 /**
- * Sticky glass top bar: micro-label above the Barlow screen title; sync dot and Settings gear on
- * the right. The shadow appears (and the hairline hides) only once content scrolls under it.
+ * Collapsing top bar (FLUID_GLASS v2 §5): 52dp, transparent at rest while the page shows its
+ * [LargeTitle]; once that scrolls under ([scrolled]), the bar turns blurred `glass-strong` with a
+ * soft bottom shadow and the compact title (Inter 17/600) cross-fades in (200 ms). Sync dot and
+ * Settings stay on the right. [titleAlways] keeps the compact title visible (screens without a
+ * large title, e.g. a detail pane).
  */
 @Composable
 fun GlassTopBar(
-    micro: String,
     title: String,
     scrolled: Boolean,
     modifier: Modifier = Modifier,
     navigation: (@Composable () -> Unit)? = null,
-    titleContent: (@Composable () -> Unit)? = null,
-    showMark: Boolean = LocalShowMarkInTopBar.current,
+    titleAlways: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val c = Budget.colors
     val acts = LocalTopBarActions.current
-    val shadowAlpha by animateFloatAsState(if (scrolled) 1f else 0f, tween(Motion.HOVER, easing = Motion.Ease), label = "barShadow")
-    Column(
-        modifier
-            .fillMaxWidth()
-            .shadow((8 * shadowAlpha).dp, RectangleShape, clip = false, ambientColor = c.shadow.copy(alpha = .07f), spotColor = c.shadow.copy(alpha = .1f))
-            .background(c.glassBar)
-            .drawBehind {
-                if (shadowAlpha < 1f) drawLine(c.line.copy(alpha = 1f - shadowAlpha), Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 1.dp.toPx())
-            }
-            .statusBarsPadding()
-            .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)),
-    ) {
+    val reduce = LocalReduceMotion.current
+    val a by animateFloatAsState(if (scrolled) 1f else 0f, if (reduce) tween(0) else tween(Motion.BAR_CONDENSE, easing = Motion.Ease), label = "barGlass")
+    val titleA by animateFloatAsState(if (scrolled || titleAlways) 1f else 0f, if (reduce) tween(0) else tween(Motion.BAR_CONDENSE, easing = Motion.Ease), label = "barTitle")
+    Box(modifier.fillMaxWidth()) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer { alpha = a }
+                .softShadow(RectangleShape, c.shadow.copy(alpha = if (c.isDark) .5f else .18f), 24.dp, 8.dp, (-12).dp)
+                .blurredGlass(LocalFrameHaze.current, RectangleShape),
+        )
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(start = if (navigation != null) 4.dp else 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+                .height(TopBarHeight)
+                .padding(start = if (navigation != null) 4.dp else 16.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (navigation != null) {
-                navigation()
-            } else if (showMark) {
-                BrandMark(size = 28.dp, contentDescription = "Budget")
-                Spacer(Modifier.width(12.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                MicroLabel(micro)
-                if (titleContent != null) {
-                    titleContent()
-                } else {
-                    Text(title.uppercase(), style = Budget.type.screenTitle, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
+            navigation?.invoke()
+            Text(
+                title,
+                style = Budget.type.barTitle,
+                color = c.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(start = if (navigation != null) 4.dp else 0.dp).graphicsLayer { alpha = titleA },
+            )
             actions()
             Box(
                 Modifier
-                    .size(40.dp)
-                    .tappable(shape = CircleShape, label = "Sync now", onClick = acts.onSync)
+                    .size(44.dp)
+                    .tappable(shape = CircleShape, label = "Sync now", scale = Motion.ICON_PRESS_SCALE, onClick = acts.onSync)
                     .semantics { contentDescription = acts.sync.describe() },
                 contentAlignment = Alignment.Center,
             ) { SyncDot(acts.sync) }
             if (LocalShowSettingsGear.current) {
-                GhostIconButton(Lucide.Settings, "Settings", onClick = acts.onSettings)
+                GhostIconButton(Lucide.Settings, "Settings", size = 44.dp, iconSize = 21.dp, onClick = acts.onSettings)
             }
         }
     }
 }
 
 /**
- * Screen frame: the content fills the whole area and scrolls *under* the glass top bar; the
- * padding passed to [content] reserves the bar's measured height plus the shell's bottom bar.
+ * The large title block at the top of a screen's scroll (v2 §5): micro label 12/500 ink-3 above the
+ * Barlow display title 40/44. [onTitleClick] makes the title a button (e.g. the month picker).
+ */
+@Composable
+fun LargeTitle(
+    micro: String?,
+    title: String,
+    modifier: Modifier = Modifier,
+    onTitleClick: (() -> Unit)? = null,
+    titleClickLabel: String? = null,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
+    val c = Budget.colors
+    Row(modifier.fillMaxWidth().padding(top = 2.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+        Column(Modifier.weight(1f)) {
+            if (micro != null) MicroLabel(micro)
+            Text(
+                title.uppercase(),
+                style = Budget.type.screenTitle,
+                color = c.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .then(if (onTitleClick != null) Modifier.tappable(shape = RoundedCornerShape(Radius.control), label = titleClickLabel, onClick = onTitleClick) else Modifier)
+                    .semantics { heading() },
+            )
+        }
+        trailing()
+    }
+}
+
+/**
+ * Screen frame: content fills the whole area and scrolls under the top bar; the scrolling content
+ * is the blur source for the bar. The padding passed to [content] reserves the bar plus the shell's
+ * floating nav.
  */
 @Composable
 fun ScreenFrame(
@@ -212,165 +246,230 @@ fun ScreenFrame(
     val density = LocalDensity.current
     var topHeight by remember { mutableStateOf(0.dp) }
     val shell = LocalShellPadding.current
-    Box(modifier.fillMaxSize().background(Budget.colors.bg)) {
-        content(PaddingValues(top = topHeight, bottom = shell.calculateBottomPadding()))
-        Box(Modifier.fillMaxWidth().onSizeChanged { topHeight = with(density) { it.height.toDp() } }) { topBar() }
+    val haze = rememberHazeState()
+    Box(modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().hazeSource(haze)) {
+            content(PaddingValues(top = topHeight, bottom = shell.calculateBottomPadding()))
+        }
+        Box(Modifier.fillMaxWidth().onSizeChanged { topHeight = with(density) { it.height.toDp() } }) {
+            CompositionLocalProvider(LocalFrameHaze provides haze) { topBar() }
+        }
     }
 }
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
-/** Glass bottom bar (compact): 5 items, an accent-soft pill glides to the selected one. */
+/** Visual height of the floating nav pill (cover screen). */
+val FloatingNavHeight = 60.dp
+
+/** Width of one floating-nav item for a window [width]: 5 items + Add must fit with 12dp margins. */
+fun floatingNavItemWidth(width: Dp, count: Int): Dp =
+    ((width - 24.dp - 12.dp - 66.dp) / count).coerceIn(48.dp, 78.dp)
+
+/**
+ * Cover-screen navigation (§5): a detached floating glass pill (blurred), one item per destination
+ * with a gliding `fill-2` indicator (spring-soft), and the round accent Add button floating beside
+ * it. Items size to the window so all five fit the cover screen; very narrow windows drop labels.
+ */
 @Composable
-fun GlassBottomBar(items: List<NavItem>, selectedRoute: String?, onSelect: (NavItem) -> Unit, modifier: Modifier = Modifier) {
+fun FloatingNavBar(
+    items: List<NavItem>,
+    selectedRoute: String?,
+    onSelect: (NavItem) -> Unit,
+    onAdd: () -> Unit,
+    showAdd: Boolean,
+    itemWidth: Dp,
+    modifier: Modifier = Modifier,
+) {
     val c = Budget.colors
     val density = LocalDensity.current
     val reduce = LocalReduceMotion.current
-    val positions = remember { mutableStateMapOf<Int, Pair<Dp, Dp>>() }
+    val positions = remember { mutableStateMapOf<Int, Dp>() }
     var ready by remember { mutableStateOf(false) }
     val sel = items.indexOfFirst { it.route == selectedRoute }
     val target = positions[sel]
-    val x by animateDpAsState(target?.first ?: 0.dp, if (ready && !reduce) tween(Motion.GLIDE, easing = Motion.Ease) else tween(0), label = "navX")
+    val x by animateDpAsState(target ?: 0.dp, if (ready && !reduce) tween(Motion.THUMB, easing = Motion.SpringSoft) else tween(0), label = "navX")
     LaunchedEffect(target != null) {
         if (target != null) {
             kotlinx.coroutines.delay(32)
             ready = true
         }
     }
-    Column(
-        modifier
-            .fillMaxWidth()
-            .background(c.glassBar)
-            .drawBehind { drawLine(c.line, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
-            .navigationBarsPadding(),
-    ) {
-        Box(Modifier.fillMaxWidth().height(68.dp)) {
-            if (target != null && sel >= 0) {
-                Box(
-                    Modifier
-                        .offset(x = x + (target.second - 56.dp) / 2, y = 8.dp)
-                        .size(56.dp, 30.dp)
-                        .clip(RoundedCornerShape(99.dp))
-                        .background(c.accentSoft),
-                )
+    val indicatorA by animateFloatAsState(if (sel >= 0) 1f else 0f, tween(Motion.HOVER, easing = Motion.Ease), label = "navInd")
+    val pill = RoundedCornerShape(Radius.pill)
+    val labels = itemWidth >= 58.dp
+    Row(modifier.navigationBarsPadding().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .height(FloatingNavHeight)
+                .glassShadow(pill, large = true)
+                .blurredGlass(LocalShellHaze.current, pill)
+                .glassEdge(pill)
+                .padding(6.dp),
+        ) {
+            if (target != null) {
+                Box(Modifier.offset { IntOffset(x.roundToPx(), 0) }.size(itemWidth, FloatingNavHeight - 12.dp).graphicsLayer { alpha = indicatorA }.clip(pill).background(c.fill2))
             }
-            Row(Modifier.fillMaxSize()) {
+            Row {
                 items.forEachIndexed { i, item ->
                     val selected = i == sel
-                    val ink by animateColorAsState(if (selected) c.accentInk else c.ink3, tween(Motion.HOVER, easing = Motion.Ease), label = "navInk")
+                    val ink by animateColorAsState(if (selected) c.ink else c.ink3, tween(Motion.HOVER, easing = Motion.Ease), label = "navInk")
                     val interaction = remember { MutableInteractionSource() }
                     Column(
                         Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .onPlaced { with(density) { positions[i] = it.positionInParent().x.toDp() to it.size.width.toDp() } }
+                            .size(itemWidth, FloatingNavHeight - 12.dp)
+                            .onPlaced { with(density) { positions[i] = it.positionInParent().x.toDp() } }
                             .pressScale(interaction)
-                            .clickable(interactionSource = interaction, indication = null, role = Role.Tab) { onSelect(item) }
-                            .semantics { this.selected = selected },
+                            .clip(pill)
+                            .clickable(interactionSource = interaction, indication = null, role = Role.Tab, onClickLabel = item.label) { onSelect(item) }
+                            .semantics {
+                                this.selected = selected
+                                contentDescription = item.label
+                            },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Icon(item.icon, null, tint = ink, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.height(5.dp))
-                        Text(item.label, style = Budget.type.nav, color = ink, maxLines = 1)
+                        if (labels) {
+                            Spacer(Modifier.height(3.dp))
+                            Text(item.label, style = Budget.type.nav, color = ink, maxLines = 1, overflow = TextOverflow.Clip)
+                        }
                     }
                 }
+            }
+        }
+        AnimatedVisibility(
+            visible = showAdd,
+            enter = scaleIn(tween(Motion.ARRIVE, easing = Motion.Spring), initialScale = .6f) + fadeIn(tween(200)),
+            exit = scaleOut(tween(200, easing = Motion.Ease), targetScale = .6f) + fadeOut(tween(160)),
+        ) {
+            Row {
+                Spacer(Modifier.width(10.dp))
+                AddCircle(onAdd, size = 56.dp)
             }
         }
     }
 }
 
-/** Navigation rail (medium / expanded): 80dp, Add at the top. */
+/** The one accent per view: round Add with its tinted shadow (`0 10px 24px -6px accent .45`). */
+@Composable
+fun AddCircle(onAdd: () -> Unit, modifier: Modifier = Modifier, size: Dp = 56.dp) {
+    val c = Budget.colors
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .size(size)
+            .pressScale(interaction, Motion.ICON_PRESS_SCALE)
+            // Tinted lift in light; a plain dark shadow in dark so it never reads as a glow.
+            .softShadow(CircleShape, if (c.isDark) Color.Black.copy(alpha = .55f) else c.accent.copy(alpha = .40f), 24.dp, 10.dp, (-6).dp)
+            .clip(CircleShape)
+            .background(c.accent)
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClickLabel = "Add transaction", onClick = onAdd)
+            .semantics { contentDescription = "Add transaction" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Lucide.Plus, null, tint = c.onAccent, modifier = Modifier.size(size * .46f))
+    }
+}
+
+/** Rail widths: 76dp (600–1023dp windows, Add on top) or 220dp with the lockup (≥ 1024dp). */
+fun railWidth(wide: Boolean): Dp = if (wide) 220.dp else 76.dp
+
+/**
+ * Inner-screen navigation (§5): a floating glass panel inset 12dp (radius 24); the active item sits
+ * on a gliding `fill-2` pill with ink text (spring-soft), inactive items are ink-2.
+ */
 @Composable
 fun GlassRail(
     items: List<NavItem>,
     selectedRoute: String?,
     onSelect: (NavItem) -> Unit,
     onAdd: () -> Unit,
+    wide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val c = Budget.colors
-    Column(
-        modifier
-            .fillMaxHeight()
-            .width(80.dp)
-            .background(c.glassBar)
-            .drawBehind { drawLine(c.line, Offset(size.width - 1f, 0f), Offset(size.width - 1f, size.height), 1.dp.toPx()) }
-            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Start + WindowInsetsSides.Vertical))
-            .statusBarsPadding()
-            .padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        BrandMark(size = 30.dp, contentDescription = "Budget")
-        Spacer(Modifier.height(18.dp))
-        AddButtonSquare(onAdd)
-        Spacer(Modifier.height(20.dp))
-        items.forEach { item ->
-            val selected = item.route == selectedRoute
-            val ink by animateColorAsState(if (selected) c.accentInk else c.ink3, tween(Motion.HOVER, easing = Motion.Ease), label = "railInk")
-            val pill by animateColorAsState(if (selected) c.accentSoft else Color.Transparent, tween(Motion.GLIDE, easing = Motion.Ease), label = "railPill")
-            val interaction = remember { MutableInteractionSource() }
-            Column(
-                Modifier
-                    .padding(vertical = 6.dp)
-                    .width(72.dp)
-                    .pressScale(interaction)
-                    .clickable(interactionSource = interaction, indication = null, role = Role.Tab) { onSelect(item) }
-                    .semantics { this.selected = selected },
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(Modifier.size(56.dp, 32.dp).clip(RoundedCornerShape(99.dp)).background(pill), contentAlignment = Alignment.Center) {
-                    Icon(item.icon, null, tint = ink, modifier = Modifier.size(20.dp))
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(item.label, style = Budget.type.nav, color = ink, maxLines = 1)
-            }
+    val density = LocalDensity.current
+    val reduce = LocalReduceMotion.current
+    val positions = remember { mutableStateMapOf<Int, Dp>() }
+    var ready by remember { mutableStateOf(false) }
+    val sel = items.indexOfFirst { it.route == selectedRoute }
+    val target = positions[sel]
+    val y by animateDpAsState(target ?: 0.dp, if (ready && !reduce) tween(Motion.THUMB, easing = Motion.SpringSoft) else tween(0), label = "railY")
+    LaunchedEffect(target != null) {
+        if (target != null) {
+            kotlinx.coroutines.delay(32)
+            ready = true
         }
     }
-}
-
-@Composable
-private fun AddButtonSquare(onAdd: () -> Unit) {
-    val c = Budget.colors
-    val interaction = remember { MutableInteractionSource() }
-    Box(
-        Modifier
-            .size(52.dp)
-            .pressScale(interaction)
-            .shadow(6.dp, RoundedCornerShape(16.dp), ambientColor = c.shadow.copy(alpha = .2f), spotColor = c.shadow.copy(alpha = .25f))
-            .clip(RoundedCornerShape(16.dp))
-            .background(c.accent)
-            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClickLabel = "Add transaction", onClick = onAdd)
-            .semantics { contentDescription = "Add transaction" },
-        contentAlignment = Alignment.Center,
+    val indicatorA by animateFloatAsState(if (sel >= 0) 1f else 0f, tween(Motion.HOVER, easing = Motion.Ease), label = "railInd")
+    val panel = RoundedCornerShape(Radius.rail)
+    val itemShape = if (wide) RoundedCornerShape(Radius.control) else RoundedCornerShape(18.dp)
+    val itemH = if (wide) 44.dp else 58.dp
+    val itemW = 64.dp
+    Column(
+        modifier
+            .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.navigationBars).union(WindowInsets.displayCutout).only(WindowInsetsSides.Start + WindowInsetsSides.Vertical))
+            .padding(12.dp)
+            .fillMaxHeight()
+            .width(railWidth(wide))
+            .glassShadow(panel)
+            .blurredGlass(LocalShellHaze.current, panel)
+            .glassEdge(panel)
+            .padding(vertical = 16.dp, horizontal = if (wide) 12.dp else 6.dp),
+        horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally,
     ) {
-        Icon(Lucide.Plus, null, tint = c.onAccent, modifier = Modifier.size(24.dp))
-    }
-}
-
-/** Compact FAB: round accent button; springs in. */
-@Composable
-fun AddFab(visible: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val c = Budget.colors
-    AnimatedVisibility(
-        visible = visible,
-        modifier = modifier,
-        enter = scaleIn(tween(Motion.ARRIVE, easing = Motion.Spring), initialScale = .6f) + fadeIn(tween(250)),
-        exit = scaleOut(tween((Motion.ARRIVE * Motion.EXIT_FACTOR).toInt(), easing = Motion.Ease), targetScale = .6f) + fadeOut(tween(200)),
-    ) {
-        val interaction = remember { MutableInteractionSource() }
-        Box(
-            Modifier
-                .size(56.dp)
-                .pressScale(interaction)
-                .shadow(10.dp, CircleShape, ambientColor = c.shadow.copy(alpha = .22f), spotColor = c.shadow.copy(alpha = .3f))
-                .clip(CircleShape)
-                .background(c.accent)
-                .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClickLabel = "Add transaction", onClick = onClick)
-                .semantics { contentDescription = "Add transaction" },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Lucide.Plus, null, tint = c.onAccent, modifier = Modifier.size(26.dp))
+        if (wide) {
+            BrandLockup(width = 112.dp, modifier = Modifier.padding(start = 8.dp))
+            Spacer(Modifier.height(20.dp))
+            BudgetButton("Add", onAdd, Modifier.fillMaxWidth(), kind = ButtonKind.Primary, icon = Lucide.Plus)
+        } else {
+            BrandMark(size = 28.dp, contentDescription = "Budget")
+            Spacer(Modifier.height(18.dp))
+            AddCircle(onAdd, size = 48.dp)
+        }
+        Spacer(Modifier.height(20.dp))
+        Box {
+            if (target != null) {
+                Box(
+                    Modifier
+                        .offset { IntOffset(0, y.roundToPx()) }
+                        .then(if (wide) Modifier.fillMaxWidth() else Modifier.width(itemW))
+                        .height(itemH)
+                        .graphicsLayer { alpha = indicatorA }
+                        .clip(itemShape)
+                        .background(c.fill2),
+                )
+            }
+            Column {
+                items.forEachIndexed { i, item ->
+                    val selected = i == sel
+                    val ink by animateColorAsState(if (selected) c.ink else c.ink2, tween(Motion.HOVER, easing = Motion.Ease), label = "railInk")
+                    val interaction = remember { MutableInteractionSource() }
+                    val base = Modifier
+                        .then(if (wide) Modifier.fillMaxWidth() else Modifier.width(itemW))
+                        .height(itemH)
+                        .onPlaced { with(density) { positions[i] = it.positionInParent().y.toDp() } }
+                        .pressScale(interaction)
+                        .clip(itemShape)
+                        .clickable(interactionSource = interaction, indication = null, role = Role.Tab) { onSelect(item) }
+                        .semantics { this.selected = selected }
+                    if (wide) {
+                        Row(base.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(item.icon, null, tint = ink, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text(item.label, style = Budget.type.segment, color = ink, maxLines = 1)
+                        }
+                    } else {
+                        Column(base, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Icon(item.icon, null, tint = ink, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.height(3.dp))
+                            Text(item.label, style = Budget.type.nav, color = ink, maxLines = 1, overflow = TextOverflow.Clip)
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+            }
         }
     }
 }
@@ -410,15 +509,15 @@ fun ToastHost(state: ToastState, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = msg != null,
         modifier = modifier,
-        enter = slideInVertically(tween(Motion.ARRIVE, easing = Motion.Spring)) { it / 2 } + fadeIn(tween(300, easing = Motion.Ease)) +
-            scaleIn(tween(Motion.ARRIVE, easing = Motion.Spring), initialScale = .96f),
-        exit = fadeOut(tween(200, easing = Motion.Ease)) + slideOutVertically(tween(270, easing = Motion.Ease)) { it / 3 },
+        enter = slideInVertically(tween(Motion.SHEET_IN, easing = Motion.Spring)) { it / 2 } + fadeIn(tween(250, easing = Motion.Ease)) +
+            scaleIn(tween(Motion.SHEET_IN, easing = Motion.Spring), initialScale = .96f),
+        exit = fadeOut(tween(200, easing = Motion.Ease)) + slideOutVertically(tween(200, easing = Motion.Ease)) { it / 3 },
     ) {
         val m = last ?: return@AnimatedVisibility
         Row(
             Modifier
-                .shadow(12.dp, RoundedCornerShape(10.dp), ambientColor = Color(16, 24, 40).copy(alpha = .14f), spotColor = Color(16, 24, 40).copy(alpha = .2f))
-                .clip(RoundedCornerShape(10.dp))
+                .softShadow(RoundedCornerShape(16.dp), Color(8, 32, 79).copy(alpha = .28f), 32.dp, 12.dp, (-10).dp)
+                .clip(RoundedCornerShape(16.dp))
                 .background(c.toast)
                 .padding(start = 18.dp, end = if (m.actionLabel != null) 8.dp else 18.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -453,4 +552,19 @@ fun ProvideToast(state: ToastState, content: @Composable () -> Unit) {
 fun androidx.compose.foundation.ScrollState.isScrolled(): Boolean {
     val state = this
     return remember(state) { androidx.compose.runtime.derivedStateOf { state.value > 0 } }.value
+}
+
+/** Past the large title: the top bar turns to glass and shows the compact title. */
+@Composable
+fun androidx.compose.foundation.ScrollState.pastTitle(): Boolean {
+    val state = this
+    val px = with(LocalDensity.current) { 56.dp.toPx() }
+    return remember(state, px) { androidx.compose.runtime.derivedStateOf { state.value > px } }.value
+}
+
+@Composable
+fun androidx.compose.foundation.lazy.LazyListState.pastTitle(): Boolean {
+    val state = this
+    val px = with(LocalDensity.current) { 56.dp.toPx() }
+    return remember(state, px) { androidx.compose.runtime.derivedStateOf { state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > px } }.value
 }

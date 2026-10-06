@@ -31,7 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.personal.budget.ui.theme.Radius
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
@@ -54,7 +55,8 @@ import com.personal.budget.domain.model.LedgerEntry
 import com.personal.budget.domain.usecase.HistoryRange
 import com.personal.budget.domain.usecase.Money
 import com.personal.budget.domain.usecase.NetWorthHistoryMath
-import com.personal.budget.ui.components.isScrolled
+import com.personal.budget.ui.components.LargeTitle
+import com.personal.budget.ui.components.pastTitle
 import com.personal.budget.ui.components.HistoryChart
 import com.personal.budget.ui.components.SegmentedControl
 import com.personal.budget.ui.components.Sparkline
@@ -80,7 +82,6 @@ import com.personal.budget.ui.components.MicroLabel
 import com.personal.budget.ui.components.MoneyField
 import com.personal.budget.ui.components.Pick
 import com.personal.budget.ui.components.PickRow
-import com.personal.budget.ui.components.Pill
 import com.personal.budget.ui.components.ScreenFrame
 import com.personal.budget.ui.components.tappable
 import com.personal.budget.ui.screens.LocalWindowLayout
@@ -135,11 +136,12 @@ fun NetWorthScreen() {
     val s = snapshot ?: return
     val nw = remember(s) { NetWorthMath.compute(s.book, s.accounts, s.ledger) }
 
-    ScreenFrame(topBar = { GlassTopBar(micro = "Budget", title = "Net worth", scrolled = scroll.isScrolled()) }) { padding ->
+    ScreenFrame(topBar = { GlassTopBar(title = "Net worth", scrolled = scroll.pastTitle()) }) { padding ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(padding).padding(horizontal = layout.gutter, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(padding).padding(horizontal = layout.gutter, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            LargeTitle("Budget", "Net worth")
             if (layout.isCompact) {
                 HistoryCard(s, nw, vm, chartHeight = 180.dp)
                 Summary(s, nw, compact = true)
@@ -147,8 +149,8 @@ fun NetWorthScreen() {
                 LedgerCard(s, nw, vm)
             } else {
                 // Expanded: the history chart sits beside the accounts list.
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         HistoryCard(s, nw, vm, chartHeight = 240.dp)
                         Summary(s, nw, compact = LocalWindowLayout.current != com.personal.budget.ui.screens.WindowLayout.Expanded)
                         LedgerCard(s, nw, vm)
@@ -182,16 +184,17 @@ private fun HistoryCard(s: BudgetSnapshot, nw: NetWorthSummary, vm: NetWorthView
     val change = NetWorthHistoryMath.changeOver(history, range)
     val points = remember(history, range) { NetWorthHistoryMath.series(history, range) }
     val overlay = remember(history, range, overlayOn) { if (overlayOn) NetWorthHistoryMath.series(history, range) { it.superLiquid } else emptyList() }
-    BudgetCard(padding = PaddingValues(18.dp)) {
+    BudgetCard(padding = PaddingValues(20.dp)) {
         MicroLabel("Net worth")
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         AnimatedMoney(nw.netWorth, style = Budget.type.hero, color = if (nw.netWorth < 0) c.bad else c.ink)
+        Spacer(Modifier.height(2.dp))
         if (change != null && history.size >= 2) {
             ChangeLine(change.amount, if (change.sinceFallback) "since ${shortDay(change.base.date)}" else range.label)
         } else {
             Text("Accounts + unsettled IOUs", style = Budget.type.secondary, color = c.ink2)
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp))
         if (history.size < 2) {
             Column(Modifier.fillMaxWidth().padding(vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 AppIconLarge()
@@ -208,7 +211,7 @@ private fun HistoryCard(s: BudgetSnapshot, nw: NetWorthSummary, vm: NetWorthView
             SegmentedControl(HistoryRange.entries.map { it to it.label }, range, vm::setRange)
             Pick("Super liquid", overlayOn, { vm.setOverlay(!overlayOn) }, dotColor = c.good)
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         HistoryChart(points, height = chartHeight, overlay = overlay, animateKey = range)
     }
 }
@@ -248,21 +251,20 @@ private fun Summary(s: BudgetSnapshot, nw: NetWorthSummary, compact: Boolean) {
     )
     if (compact) {
         // Cover screen: one row per metric (label left, value + 30-day change right).
-        BudgetCard(padding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)) {
+        BudgetCard(padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
             tiles.forEachIndexed { i, (label, v, change) ->
                 val color = if (i == 2) (if (v < 0) c.bad else if (v > 0) c.good else c.ink) else c.ink
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(label, style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
                         AnimatedMoney(v, style = Budget.type.tableNumber.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = color)
                         if (change != null) ChangeLine(change.amount, if (change.sinceFallback) "since ${shortDay(change.base.date)}" else "30d")
                     }
                 }
-                if (i < tiles.lastIndex) com.personal.budget.ui.components.Hairline()
             }
         }
     } else {
-        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             tiles.forEachIndexed { i, (label, v, change) ->
                 Tile(label, Modifier.weight(1f).fillMaxHeight(), wrapLabel = true) {
                     val color = if (i == 2) (if (v < 0) c.bad else if (v > 0) c.good else c.ink) else c.ink
@@ -280,49 +282,39 @@ private fun Summary(s: BudgetSnapshot, nw: NetWorthSummary, compact: Boolean) {
 private fun AccountsCard(s: BudgetSnapshot, nw: NetWorthSummary, vm: NetWorthViewModel) {
     val c = Budget.colors
     val active = s.accounts.filter { !it.archived }
-    BudgetCard(padding = PaddingValues(top = 14.dp, bottom = 6.dp)) {
-        CardHeader("Accounts", Modifier.padding(horizontal = 14.dp)) {
+    BudgetCard(padding = PaddingValues(top = 12.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)) {
+        CardHeader("Accounts", Modifier.padding(start = 12.dp, end = 4.dp)) {
             BudgetButton("Add", { vm.edit("account:new") }, kind = ButtonKind.Ghost, icon = Lucide.Plus)
         }
-        if (active.isEmpty()) Text("No accounts yet.", style = Budget.type.secondary, color = c.ink3, modifier = Modifier.padding(14.dp))
+        if (active.isEmpty()) Text("No accounts yet.", style = Budget.type.secondary, color = c.ink3, modifier = Modifier.padding(12.dp))
         AccountGroup.entries.forEach { group ->
             val rows = active.filter { it.group == group }
             if (rows.isEmpty()) return@forEach
-            Row(Modifier.padding(horizontal = 14.dp).padding(top = 8.dp, bottom = 2.dp)) {
+            Row(Modifier.padding(horizontal = 12.dp).padding(top = 10.dp, bottom = 2.dp)) {
                 MicroLabel(group.label, Modifier.weight(1f))
                 MicroLabel(Money.format(rows.sumOf { nw.balances[it.id] ?: 0.0 }))
             }
             AnimatedList(rows, key = { it.id }) { a ->
                 val linked = a.linkedCategoryId?.let { s.book.categoriesById[it] }
+                // One quiet meta line instead of badges: "Super liquid", "Auto · Roth ×2".
+                val meta = listOfNotNull(
+                    if (a.liquid) "Super liquid" else null,
+                    if (a.linkedCategoryId != null) {
+                        "Auto · ${linked?.name ?: "category"}" + if ((linked?.matchMultiplier ?: 1.0) != 1.0) " ×${Money.formatInput(linked?.matchMultiplier)}" else ""
+                    } else {
+                        null
+                    },
+                ).joinToString(" · ")
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .tappable(shape = RectangleShape, onClick = { vm.edit("account:${a.id}") })
-                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                        .tappable(shape = RoundedCornerShape(Radius.row), pressedFill = c.fill, onClick = { vm.edit("account:${a.id}") })
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(a.name, style = Budget.type.body, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                            if (a.linkedCategoryId != null) {
-                                Spacer(Modifier.width(6.dp))
-                                Pill("auto", accent = true)
-                            }
-                            if (a.liquid) {
-                                Spacer(Modifier.width(6.dp))
-                                Pill("liquid")
-                            }
-                        }
-                        if (a.linkedCategoryId != null) {
-                            Text(
-                                "auto · ${Money.format(a.baseAmount)} base + ${linked?.name ?: "category"} contributions" +
-                                    if ((linked?.matchMultiplier ?: 1.0) != 1.0) " ×${Money.formatInput(linked?.matchMultiplier)}" else "",
-                                style = Budget.type.small,
-                                color = c.ink3,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                        Text(a.name, style = Budget.type.body, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (meta.isNotEmpty()) Text(meta, style = Budget.type.small, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     val bal = nw.balances[a.id] ?: a.balance
                     AnimatedMoney(bal, style = Budget.type.bodyStrong, color = if (bal < 0) c.bad else c.ink)
@@ -331,7 +323,7 @@ private fun AccountsCard(s: BudgetSnapshot, nw: NetWorthSummary, vm: NetWorthVie
         }
         val archived = s.accounts.count { it.archived }
         if (archived > 0) {
-            Text("$archived archived account${if (archived == 1) "" else "s"} hidden", style = Budget.type.small, color = c.ink3, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+            Text("$archived archived account${if (archived == 1) "" else "s"} hidden", style = Budget.type.small, color = c.ink3, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
         }
     }
 }
@@ -340,21 +332,21 @@ private fun AccountsCard(s: BudgetSnapshot, nw: NetWorthSummary, vm: NetWorthVie
 private fun LedgerCard(s: BudgetSnapshot, nw: NetWorthSummary, vm: NetWorthViewModel) {
     val c = Budget.colors
     val view = LocalView.current
-    BudgetCard(padding = PaddingValues(top = 14.dp, bottom = 6.dp)) {
-        CardHeader("Ledger (IOUs)", Modifier.padding(horizontal = 14.dp)) {
+    BudgetCard(padding = PaddingValues(top = 12.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)) {
+        CardHeader("Ledger (IOUs)", Modifier.padding(start = 12.dp, end = 4.dp)) {
             BudgetButton("Add", { vm.edit("ledger:new") }, kind = ButtonKind.Ghost, icon = Lucide.Plus)
         }
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 2.dp)) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
             MicroLabel("+ owed to me · − I owe", Modifier.weight(1f))
             MicroLabel("Net ${Money.format(nw.netReconciliations)}")
         }
-        if (s.ledger.isEmpty()) Text("Nothing owed either way.", style = Budget.type.secondary, color = c.ink3, modifier = Modifier.padding(14.dp))
+        if (s.ledger.isEmpty()) Text("Nothing owed either way.", style = Budget.type.secondary, color = c.ink3, modifier = Modifier.padding(12.dp))
         AnimatedList(s.ledger, key = { it.id }) { e ->
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .tappable(shape = RectangleShape, onClick = { vm.edit("ledger:${e.id}") })
-                    .padding(start = 6.dp, end = 14.dp, top = 4.dp, bottom = 4.dp)
+                    .tappable(shape = RoundedCornerShape(Radius.row), pressedFill = c.fill, onClick = { vm.edit("ledger:${e.id}") })
+                    .padding(start = 2.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
                     .graphicsLayer { alpha = if (e.settled) .5f else 1f },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -399,14 +391,15 @@ private fun SettleCheck(checked: Boolean, onChange: (Boolean) -> Unit) {
             },
         contentAlignment = Alignment.Center,
     ) {
+        val fill by androidx.compose.animation.animateColorAsState(if (checked) c.ink else Color.Transparent, androidx.compose.animation.core.tween(com.personal.budget.ui.theme.Motion.HOVER), label = "settle")
         Box(
             Modifier
-                .size(20.dp)
-                .background(if (checked) c.accent else Color.Transparent, CircleShape)
-                .border(1.5.dp, if (checked) c.accent else c.line2, CircleShape),
+                .size(22.dp)
+                .background(fill, CircleShape)
+                .border(1.5.dp, if (checked) c.ink else c.ink3.copy(alpha = .5f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            if (checked) Icon(Lucide.Check, null, tint = Color.White, modifier = Modifier.size(13.dp))
+            if (checked) Icon(Lucide.Check, null, tint = c.page, modifier = Modifier.size(13.dp))
         }
     }
 }
@@ -466,17 +459,14 @@ private fun AccountDialog(s: BudgetSnapshot, existing: Account?, vm: NetWorthVie
         PickRow(AccountGroup.entries.map { it to it.label }, group, { group = it })
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Super liquid", style = Budget.type.body, color = c.ink)
-                Text("Counts toward super liquid assets", style = Budget.type.small, color = c.ink3)
-            }
+            Text("Super liquid", style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
             BudgetSwitch(liquid, { liquid = it })
         }
         Spacer(Modifier.height(12.dp))
         MicroLabel("Balance source")
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pick("Manual balance", linked == null, { linked = null })
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pick("Manual", linked == null, { linked = null })
             savingsCats.forEach { cat -> Pick("Linked: ${cat.name}", linked == cat.id, { linked = cat.id }) }
         }
         Spacer(Modifier.height(12.dp))
@@ -490,7 +480,7 @@ private fun AccountDialog(s: BudgetSnapshot, existing: Account?, vm: NetWorthVie
         if (existing != null) {
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Archived (hidden, excluded from net worth)", style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
+                Text("Archived", style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
                 BudgetSwitch(archived, { archived = it })
             }
         }

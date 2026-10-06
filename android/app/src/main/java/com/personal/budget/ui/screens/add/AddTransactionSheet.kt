@@ -1,34 +1,26 @@
 package com.personal.budget.ui.screens.add
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
@@ -60,6 +51,7 @@ import com.personal.budget.ui.components.BudgetButton
 import com.personal.budget.ui.components.BudgetTextField
 import com.personal.budget.ui.components.ButtonKind
 import com.personal.budget.ui.components.GhostIconButton
+import com.personal.budget.ui.components.GlassSheet
 import com.personal.budget.ui.components.LocalToast
 import com.personal.budget.ui.components.Lucide
 import com.personal.budget.ui.components.MicroLabel
@@ -80,7 +72,7 @@ import java.time.ZoneOffset
  * The whole form lives in MainViewModel's SavedStateHandle, so it survives fold/unfold.
  */
 @Composable
-fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
+fun AddTransactionSheet(main: MainViewModel) {
     val draft by main.addDraft.collectAsStateWithLifecycle()
     val d = draft ?: return
     val snapshot by main.snapshot.collectAsStateWithLifecycle()
@@ -89,7 +81,7 @@ fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
     val scope = rememberCoroutineScope()
     val toast = LocalToast.current
     val view = LocalView.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = com.personal.budget.ui.components.rememberGlassSheetState()
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var showDate by rememberSaveable { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -120,6 +112,12 @@ fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
         }
     }
 
+    val header: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (d.isEdit) "Edit transaction" else "Add transaction", style = Budget.type.cardTitle, color = c.ink, modifier = Modifier.weight(1f))
+            GhostIconButton(Lucide.X, "Close", onClick = { close() })
+        }
+    }
     val body: @Composable () -> Unit = {
         Column(
             Modifier
@@ -128,18 +126,14 @@ fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 16.dp),
+                .padding(top = 2.dp, bottom = 16.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (d.isEdit) "Edit transaction" else "Add transaction", style = Budget.type.cardTitle, color = c.ink, modifier = Modifier.weight(1f))
-                GhostIconButton(Lucide.X, "Close", onClick = { close() })
-            }
-            Spacer(Modifier.height(6.dp))
 
             // Amount -------------------------------------------------------------------------
             MicroLabel("Amount")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (d.refund) "−$" else "$", style = Budget.type.hero, color = if (d.refund) c.good else c.ink3)
+                Spacer(Modifier.width(2.dp))
                 BasicTextField(
                     value = d.amount,
                     onValueChange = { s -> main.updateDraft(d.copy(amount = s.filter { it.isDigit() || it == '.' || it == ',' })) },
@@ -153,7 +147,7 @@ fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
                         .semantics { contentDescription = "Amount" },
                     decorationBox = { inner ->
                         Box {
-                            if (d.amount.isEmpty()) Text("0", style = Budget.type.hero, color = c.line2)
+                            if (d.amount.isEmpty()) Text("0", style = Budget.type.hero, color = c.ink3.copy(alpha = .35f))
                             inner()
                         }
                     },
@@ -177,7 +171,6 @@ fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
                         selected = cat.id == d.categoryId,
                         onClick = { main.updateDraft(d.copy(categoryId = cat.id)) },
                         mark = paletteFor(cat, book),
-                        dimmed = d.categoryId != null,
                     )
                 }
             }
@@ -247,8 +240,8 @@ fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
             } else {
                 Text(
                     "+ Add note",
-                    style = Budget.type.secondary,
-                    color = c.accentInk,
+                    style = Budget.type.secondary.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+                    color = c.ink2,
                     modifier = Modifier.tappable(onClick = { main.updateDraft(d.copy(noteOpen = true)) }).padding(vertical = 6.dp, horizontal = 4.dp),
                 )
             }
@@ -289,31 +282,14 @@ fun AddTransactionSheet(main: MainViewModel, inline: Boolean = false) {
             }
         }
     }
-    if (inline) {
-        // Same sheet drawn in-window (previews / screenshot tests cannot capture dialog windows).
-        Box(Modifier.fillMaxSize().background(c.scrim), contentAlignment = Alignment.BottomCenter) {
-            Column(
-                Modifier.widthIn(max = 640.dp).fillMaxWidth()
-                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .background(if (c.isDark) c.surface else Color.White),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(Modifier.padding(top = 10.dp, bottom = 4.dp).size(36.dp, 4.dp).background(c.line2, RoundedCornerShape(99.dp)))
-                body()
-            }
-        }
-    } else {
-        ModalBottomSheet(
-            onDismissRequest = { main.closeAdd() },
-            sheetState = sheetState,
-            containerColor = if (c.isDark) c.surface else Color.White,
-            scrimColor = c.scrim,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 4.dp).size(36.dp, 4.dp).background(c.line2, RoundedCornerShape(99.dp))) },
-        ) {
-            body()
-        }
-    }
+    GlassSheet(
+        onDismiss = {
+            main.closeAdd()
+            error = null
+        },
+        state = sheetState,
+        header = { header() },
+    ) { body() }
 
     if (showDate) {
         val initial = d.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()

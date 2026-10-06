@@ -224,6 +224,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
+    // Real backdrop blur for the glass chrome on Android 12+ (translucent fallback below).
+    implementation(libs.haze)
+    implementation(libs.haze.blur)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

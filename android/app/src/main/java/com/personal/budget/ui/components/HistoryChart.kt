@@ -3,8 +3,6 @@ package com.personal.budget.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -27,8 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -108,9 +104,10 @@ private class ChartGeometry(
 }
 
 /**
- * Net-worth history chart (UI_ANATOMY "Net worth"): smooth accent area line with a 12 % fill
- * fading to 0, a faint baseline, first/last date labels, and a scrub cursor (vertical line-2 rule,
- * dot and a glass tooltip) on touch/drag. [overlay] draws a second, dashed series (Super liquid).
+ * Net-worth history chart (UI_ANATOMY "Net worth", FLUID_GLASS v2 §7): the smooth accent line
+ * draws in once per range (700 ms), then its 14 % area fades in; first/last date labels. Touch or
+ * drag scrubs: a vertical hairline, a dot, a strong-glass tooltip and a haptic tick per day; the
+ * cursor clears on release. [overlay] draws a second, dashed series (Super liquid).
  */
 @Composable
 fun HistoryChart(
@@ -129,11 +126,14 @@ fun HistoryChart(
     if (points.size < 2) return
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
     var scrub by remember(points) { mutableStateOf<Int?>(null) }
+    val view = androidx.compose.ui.platform.LocalView.current
+    // A light haptic tick each time the scrub moves to another day.
+    LaunchedEffect(scrub) { if (scrub != null) view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) }
     val reveal = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(animateKey) {
         if (reduce) return@LaunchedEffect
         reveal.snapTo(0f)
-        reveal.animateTo(1f, tween(700, easing = Motion.Ease))
+        reveal.animateTo(1f, tween(Motion.CHART_DRAW, easing = Motion.Ease))
     }
     val first = points.first()
     val last = points.last()
@@ -153,22 +153,21 @@ fun HistoryChart(
                                 val g = ChartGeometry(points, overlay, boxSize.width.toFloat(), boxSize.height.toFloat(), 10f, 6f)
                                 scrub = g.nearestIndex(o.x)
                                 tryAwaitRelease()
+                                scrub = null
                             },
                         )
                     }
                     .pointerInput(points) {
                         detectDragGestures(
                             onDragStart = { o -> scrub = ChartGeometry(points, overlay, boxSize.width.toFloat(), boxSize.height.toFloat(), 10f, 6f).nearestIndex(o.x) },
-                            onDragEnd = { },
-                            onDragCancel = { },
+                            onDragEnd = { scrub = null },
+                            onDragCancel = { scrub = null },
                         ) { change, _ ->
                             scrub = ChartGeometry(points, overlay, boxSize.width.toFloat(), boxSize.height.toFloat(), 10f, 6f).nearestIndex(change.position.x)
                         }
                     },
             ) {
                 val g = ChartGeometry(points, overlay, size.width, size.height, 10.dp.toPx(), 6.dp.toPx())
-                // faint baseline
-                drawLine(c.line, Offset(0f, size.height - 1f), Offset(size.width, size.height - 1f), 1.dp.toPx())
                 clipRect(right = size.width * reveal.value) {
                     if (overlay.size >= 2) {
                         drawPath(
@@ -184,14 +183,16 @@ fun HistoryChart(
                         lineTo(g.x(first, 0, points.size), size.height)
                         close()
                     }
-                    drawPath(area, Brush.verticalGradient(listOf(lineColor.copy(alpha = .12f), lineColor.copy(alpha = 0f))))
+                    // The area fades in after the line has drawn in (v2 §7).
+                    val areaA = ((reveal.value - .55f) / .45f).coerceIn(0f, 1f)
+                    drawPath(area, Brush.verticalGradient(listOf(lineColor.copy(alpha = .14f * areaA), lineColor.copy(alpha = 0f))))
                     drawPath(line, lineColor, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
                 }
                 val idx = scrub
                 if (idx != null && idx in points.indices) {
                     val p = points[idx]
                     val x = g.x(p, idx, points.size)
-                    drawLine(c.line2, Offset(x, 0f), Offset(x, size.height), 1.dp.toPx())
+                    drawLine(c.ink3.copy(alpha = .35f), Offset(x, 0f), Offset(x, size.height), 1.dp.toPx())
                     drawCircle(c.card, 6.dp.toPx(), Offset(x, g.y(p.value)))
                     drawCircle(lineColor, 4.dp.toPx(), Offset(x, g.y(p.value)))
                 } else {
@@ -210,11 +211,8 @@ fun HistoryChart(
                     Modifier
                         .offset(x = left, y = 0.dp)
                         .widthIn(max = tipW)
-                        .shadow(10.dp, RoundedCornerShape(10.dp), ambientColor = c.shadow.copy(alpha = .14f), spotColor = c.shadow.copy(alpha = .18f))
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(c.glassCard)
-                        .border(1.dp, c.shadow.copy(alpha = .08f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .glass(RoundedCornerShape(12.dp), strong = true)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
                     Text(longDay(p.date).uppercase(), style = Budget.type.micro, color = c.ink3)
                     Text(Money.format(p.value), style = Budget.type.bodyStrong, color = c.ink)

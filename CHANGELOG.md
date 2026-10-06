@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.3.0 — Fluid glass v2
+
+### Changed
+- Web: every screen sits on a soft ambient backdrop (three slow-drifting blobs, static with reduced
+  motion); cards, tiles, sheets, menus, tooltips, the nav and the collapsed top bar are frosted glass
+  (blur + saturation, hairline highlight, soft navy shadow) with an opaque fallback. Spec values in
+  `docs/FLUID_GLASS_UI.md` (now v2).
+- Web navigation: under 600px a detached floating glass pill nav with a gliding indicator and the round
+  Add beside it; a floating glass rail / side nav on wider windows. Each screen has a large title that
+  scrolls under a 52px top bar, which then turns to glass with a compact title.
+- Web controls: segmented controls (month tabs, net worth ranges, years, theme, Sheet tabs) with a
+  raised thumb that slides on a soft spring; the month picker's selection glides across the grid;
+  springy switches that stretch while pressed; pill chips; quiet fill buttons and inputs with a focus
+  ring; press-scale on everything tappable.
+- Web interactions: swipe a transaction left to delete it (arms with a haptic tick, Undo toast);
+  deleting from the transaction sheet also shows Undo instead of a confirm; drag a phone sheet down to
+  dismiss it; the net worth line and sparklines draw in, the Year bars grow in and both charts scrub
+  with a glass tooltip; shorter number rolls and list animations.
+- Web cleanup: no dividers inside cards (totals sit on a quiet band), selection is a raised thumb
+  instead of a blue tint, transaction rows are item over "● Category · date" instead of a pill, no
+  captions under toggles ("Closed: summary uses actuals", "counts toward liquid assets" and the tracking
+  hint are gone), ghost buttons for secondary calls to action. Text stays WCAG AA on the composited
+  glass in both themes. The Sheet grid stays dense and opaque; only its chrome is glass. Version 1.3.0.
+- Android: ambient backdrop (three slow-drifting soft blobs, static with "Remove animations"); cards,
+  tiles, sheet, menus and tooltips on translucent glass with a hairline highlight and soft shadow; real
+  backdrop blur (Haze, Android 12+) behind the floating nav, the rail, the collapsed top bar and the Add
+  sheet; opaque glass fallback below Android 12.
+- Android navigation: a floating glass pill bar with a sliding indicator and the round Add beside it on
+  the cover screen; a floating glass rail (76dp, 220dp with the lockup on wide windows) with a sliding
+  indicator on the inner screen. The top bar is transparent over a large title and turns to glass with
+  a compact title once you scroll.
+- Android controls: segmented controls with a raised sliding thumb (spring), springy switches that
+  stretch while pressed, pill chips, quiet fill buttons and inputs with a focus ring, press-scale on
+  everything tappable, shorter number rolls.
+- Android interactions: swipe a transaction left to delete it (haptic tick when armed, Undo toast);
+  drag the Add sheet down to dismiss it; the net-worth chart draws in, then scrubs with a glass tooltip
+  and haptic ticks; the Year bar chart now scrubs month by month too.
+- Android cleanup: no dividers inside cards, no captions under toggles, one quiet meta line instead of
+  badge rows (accounts, category detail), selection shown as a soft fill instead of blue. The Sheet
+  grid stays a dense opaque card; only its title and tab bar are glass. Version 1.3.0.
+
 ## 1.2.0
 
 ### Added

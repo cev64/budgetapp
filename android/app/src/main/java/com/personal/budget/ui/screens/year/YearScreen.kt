@@ -40,7 +40,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
@@ -63,7 +66,8 @@ import com.personal.budget.domain.usecase.YearColumn
 import com.personal.budget.domain.usecase.YearSummary
 import com.personal.budget.ui.MainViewModel
 import com.personal.budget.ui.appViewModel
-import com.personal.budget.ui.components.isScrolled
+import com.personal.budget.ui.components.LargeTitle
+import com.personal.budget.ui.components.pastTitle
 import com.personal.budget.ui.components.AnimatedMoney
 import com.personal.budget.ui.components.AppIcon
 import com.personal.budget.ui.components.BudgetCard
@@ -71,7 +75,7 @@ import com.personal.budget.ui.components.CardHeader
 import com.personal.budget.ui.components.EmptyState
 import com.personal.budget.ui.components.GhostIconButton
 import com.personal.budget.ui.components.GlassTopBar
-import com.personal.budget.ui.components.Hairline
+import com.personal.budget.ui.components.glass
 import com.personal.budget.ui.components.Lucide
 import com.personal.budget.ui.components.MicroLabel
 import com.personal.budget.ui.components.ScreenFrame
@@ -117,9 +121,8 @@ fun YearScreen(main: MainViewModel, onOpenMonth: (MonthKey) -> Unit) {
 
     ScreenFrame(topBar = {
         GlassTopBar(
-            micro = "Year",
             title = year.toString(),
-            scrolled = leftScroll.isScrolled(),
+            scrolled = leftScroll.pastTitle(),
             actions = {
                 GhostIconButton(Lucide.ChevronLeft, "Previous year", onClick = { vm.setYear(year - 1) })
                 GhostIconButton(Lucide.ChevronRight, "Next year", onClick = { vm.setYear(year + 1) })
@@ -127,16 +130,18 @@ fun YearScreen(main: MainViewModel, onOpenMonth: (MonthKey) -> Unit) {
         )
     }) { padding ->
         if (summary == null) {
-            Column(Modifier.fillMaxSize().padding(padding).padding(layout.gutter)) {
+            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = layout.gutter, vertical = 4.dp)) {
+                LargeTitle("Year", year.toString())
                 BudgetCard { EmptyState("No months in $year", "Start a month in $year to see its summary.") }
             }
             return@ScreenFrame
         }
         if (layout.isCompact) {
             Column(
-                Modifier.fillMaxSize().verticalScroll(leftScroll).padding(padding).padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                Modifier.fillMaxSize().verticalScroll(leftScroll).padding(padding).padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                LargeTitle("Year", year.toString())
                 LeftoverVsPlanHero(summary)
                 Tables(summary, colW = 84.dp)
                 SavingsRateCard(summary)
@@ -146,16 +151,17 @@ fun YearScreen(main: MainViewModel, onOpenMonth: (MonthKey) -> Unit) {
         } else {
             // Expanded: the hero spans the full width above the table / chart panes.
             Column(
-                Modifier.fillMaxSize().verticalScroll(leftScroll).padding(padding).padding(horizontal = layout.gutter, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                Modifier.fillMaxSize().verticalScroll(leftScroll).padding(padding).padding(horizontal = layout.gutter, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                LargeTitle("Year", year.toString())
                 LeftoverVsPlanHero(summary)
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Column(Modifier.weight(0.6f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(0.6f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Tables(summary, colW = 84.dp)
                         SavingsRateCard(summary)
                     }
-                    Column(Modifier.weight(0.4f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.weight(0.4f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         ChartCard(summary, chartHeight = 260.dp)
                         MonthsCard(summary, onOpenMonth)
                     }
@@ -183,18 +189,18 @@ private fun ByMonthDisclosure(y: YearSummary) {
     var open by androidx.compose.runtime.remember(y.year) { androidx.compose.runtime.mutableStateOf(initiallyOpen) }
     val rotation by androidx.compose.animation.core.animateFloatAsState(
         if (open) 180f else 0f,
-        if (reduce) androidx.compose.animation.core.tween(0) else androidx.compose.animation.core.tween(Motion.GLIDE, easing = Motion.Spring),
+        if (reduce) androidx.compose.animation.core.tween(0) else androidx.compose.animation.core.tween(Motion.THUMB, easing = Motion.SpringSoft),
         label = "chev",
     )
-    val chevColor by androidx.compose.animation.animateColorAsState(if (open) c.accent else c.ink3, androidx.compose.animation.core.tween(250, easing = Motion.Ease), label = "chevInk")
+    val chevColor by androidx.compose.animation.animateColorAsState(if (open) c.ink else c.ink3, androidx.compose.animation.core.tween(Motion.HOVER, easing = Motion.Ease), label = "chevInk")
     Column {
         Row(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
-                .tappable(shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), role = androidx.compose.ui.semantics.Role.Button, onClick = { open = !open })
+                .tappable(shape = androidx.compose.foundation.shape.RoundedCornerShape(com.personal.budget.ui.theme.Radius.control), role = androidx.compose.ui.semantics.Role.Button, onClick = { open = !open })
                 .androidx_semantics(open)
-                .padding(horizontal = 2.dp),
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MicroLabel("By month", Modifier.weight(1f))
@@ -210,9 +216,8 @@ private fun ByMonthDisclosure(y: YearSummary) {
                     androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200, easing = Motion.Ease)),
         ) {
             Column(Modifier.padding(top = 2.dp)) {
-                y.months.forEachIndexed { i, m ->
-                    if (i > 0) com.personal.budget.ui.components.Hairline()
-                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                y.months.forEach { m ->
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(m.key.name, style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
                         AppIcon(if (m.closed) Lucide.Lock else Lucide.LockOpen, null, tint = c.ink3, size = 14.dp)
                         Spacer(Modifier.width(4.dp))
@@ -271,17 +276,17 @@ private fun LeftoverVsPlanHero(y: YearSummary) {
     }
     val projected = y.actual.totals.leftover
     val planned = y.expected.totals.leftover
-    BudgetCard(padding = PaddingValues(18.dp)) {
+    BudgetCard(padding = PaddingValues(20.dp)) {
         MicroLabel("Leftover vs plan · ${y.year}")
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         androidx.compose.foundation.layout.FlowRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             itemVerticalAlignment = Alignment.Bottom,
         ) {
             AnimatedMoney(vs, style = Budget.type.hero, color = tone, format = { Money.formatSigned(it) })
-            Text(caption, style = Budget.type.body, color = c.ink2, modifier = Modifier.padding(bottom = 6.dp))
+            Text(caption, style = Budget.type.body, color = c.ink2, modifier = Modifier.padding(bottom = 8.dp))
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(14.dp))
         listOf("Projected" to projected, "Planned" to planned).forEach { (label, v) ->
             Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(label, style = Budget.type.body, color = c.ink2, modifier = Modifier.weight(1f))
@@ -289,7 +294,7 @@ private fun LeftoverVsPlanHero(y: YearSummary) {
             }
         }
         y.leftoverProgress?.let { p ->
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 BudgetProgress(
                     // Capped at 100 % (a full good bar); the percent label carries the rest.
@@ -312,7 +317,7 @@ private fun LeftoverVsPlanHero(y: YearSummary) {
 @Composable
 private fun SavingsRateCard(y: YearSummary) {
     val c = Budget.colors
-    BudgetCard(padding = PaddingValues(16.dp)) {
+    BudgetCard(padding = PaddingValues(20.dp)) {
         CardHeader("Savings rate")
         MicroLabel("Annualized savings · ${y.monthCount} month${if (y.monthCount == 1) "" else "s"}")
         Spacer(Modifier.height(8.dp))
@@ -351,7 +356,7 @@ private fun Tables(y: YearSummary, colW: Dp) {
     listOf(CategoryKind.INCOME, CategoryKind.EXPENSE, CategoryKind.SAVINGS).forEach { kind ->
         val cats = y.categories.filter { it.kind == kind }
         if (cats.isEmpty()) return@forEach
-        BudgetCard(padding = PaddingValues(vertical = 10.dp)) {
+        BudgetCard(padding = PaddingValues(top = 16.dp, bottom = 8.dp)) {
             HeaderRow(kindLabel(kind), colW)
             cats.forEach { cat ->
                 val e = y.expected.perCategory[cat.id] ?: 0.0
@@ -360,18 +365,17 @@ private fun Tables(y: YearSummary, colW: Dp) {
             }
         }
     }
-    BudgetCard(padding = PaddingValues(vertical = 10.dp)) {
+    BudgetCard(padding = PaddingValues(top = 16.dp, bottom = 8.dp)) {
         HeaderRow("Totals", colW)
         ValueRow("Income", y.expected.totals.income, y.actual.totals.income, CategoryKind.INCOME, colW)
         ValueRow("Expenses", y.expected.totals.expenses, y.actual.totals.expenses, CategoryKind.EXPENSE, colW)
         ValueRow("Saved (incl. match)", y.expected.totals.saved, y.actual.totals.saved, CategoryKind.SAVINGS, colW)
-        Hairline()
         ValueRow("Leftover", y.expected.totals.leftover, y.actual.totals.leftover, CategoryKind.INCOME, colW, bold = true)
         Text(
-            "Actual = closed months' actuals + open months' budgets (projected).",
+            "Open months count at their budget.",
             style = Budget.type.small,
             color = c.ink3,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
         )
     }
 }
@@ -379,7 +383,7 @@ private fun Tables(y: YearSummary, colW: Dp) {
 @Composable
 private fun HeaderRow(title: String, colW: Dp) {
     val compact = LocalWindowLayout.current.isCompact
-    Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = Budget.type.cardTitle, color = Budget.colors.ink, modifier = Modifier.weight(1f))
         if (compact) {
             MicroLabel("Actual")
@@ -397,7 +401,7 @@ private fun ValueRow(label: String, expected: Double, actual: Double, kind: Cate
     val num = Budget.type.tableNumber
     val style = if (bold) num.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) else num
     val d = actual - expected
-    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = if (bold) Budget.type.cardTitle else Budget.type.body, color = c.ink, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (compact) {
@@ -420,77 +424,147 @@ private fun ValueRow(label: String, expected: Double, actual: Double, kind: Cate
 }
 
 /**
- * 12 month slots. Bar = expenses (projected); thin marker = expected expenses; accent line =
- * projected leftover. Open months are drawn at 45 % opacity; missing months are empty.
+ * 12 month slots. Bar = expenses (projected); thin marker = expected expenses; green line =
+ * projected leftover. Open months are drawn at 45 % opacity; missing months are empty. Bars grow in
+ * once per year (700 ms). Touch or drag scrubs month by month: the other months dim, a strong-glass
+ * tooltip shows that month's numbers, and a haptic tick marks each step; it clears on release.
  */
 @Composable
 private fun ChartCard(y: YearSummary, chartHeight: Dp) {
     val c = Budget.colors
     val measurer = rememberTextMeasurer()
     val reduce = LocalReduceMotion.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val view = androidx.compose.ui.platform.LocalView.current
     val grow = remember(y.year) { Animatable(if (reduce) 1f else 0f) }
-    LaunchedEffect(y.year) { grow.animateTo(1f, tween(700, easing = Motion.Ease)) }
+    LaunchedEffect(y.year) { grow.animateTo(1f, tween(Motion.CHART_DRAW, easing = Motion.Ease)) }
     val points = y.months.associateBy { it.key.month }
+    var scrub by remember(y) { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+    LaunchedEffect(scrub) { if (scrub != null) view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) }
+    val focus by androidx.compose.animation.core.animateFloatAsState(if (scrub != null) 1f else 0f, tween(Motion.HOVER, easing = Motion.Ease), label = "barFocus")
     val maxV = (y.months.flatMap { listOf(it.projected.expenses, it.expected.expenses, it.projected.leftover) }.maxOrNull() ?: 0.0)
         .coerceAtLeast(1.0) * 1.1
     val minV = (y.months.minOfOrNull { it.projected.leftover } ?: 0.0).coerceAtMost(0.0) * 1.1
     val labelStyle = Budget.type.micro.copy(color = c.ink3)
-    BudgetCard {
+    val leftPadDp = 34.dp
+    /** Nearest month that has data, for an x position in px. */
+    fun monthAt(x: Float, width: Float): Int? {
+        val leftPad = with(density) { leftPadDp.toPx() }
+        val slot = (width - leftPad) / 12f
+        val m = (((x - leftPad) / slot).toInt() + 1).coerceIn(1, 12)
+        return points.keys.minByOrNull { kotlin.math.abs(it - m) }
+    }
+    BudgetCard(padding = PaddingValues(20.dp)) {
         CardHeader("Expenses by month")
-        Canvas(
-            Modifier
-                .fillMaxWidth()
-                .height(chartHeight)
-                .semantics { contentDescription = "Bar chart of monthly expenses against budget, with leftover line" },
-        ) {
-            val axisH = 18.dp.toPx()
-            val leftPad = 34.dp.toPx()
-            val plotH = size.height - axisH
-            val plotW = size.width - leftPad
-            val range = (maxV - minV).coerceAtLeast(1.0)
-            fun yOf(v: Double) = (plotH * (1 - (v - minV) / range)).toFloat()
-            // Gridlines + labels
-            listOf(0.0, maxV / 2, maxV / 1.1).forEach { g ->
-                val gy = yOf(g)
-                drawLine(c.line, Offset(leftPad, gy), Offset(size.width, gy), 1.dp.toPx(), pathEffect = if (g == 0.0) null else PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
-                val t = measurer.measure(Money.formatCompact(g), labelStyle)
-                drawText(t, topLeft = Offset(0f, gy - t.size.height / 2f))
-            }
-            val slot = plotW / 12f
-            val barW = slot * .56f
-            val leftover = Path()
-            var started = false
-            for (m in 1..12) {
-                val x = leftPad + slot * (m - 1) + (slot - barW) / 2
-                val p = points[m]
-                if (p != null) {
-                    val alpha = if (p.closed) 1f else .45f
-                    val top = yOf(p.projected.expenses * grow.value)
-                    val base = yOf(0.0)
-                    drawRoundRect(
-                        c.accent.copy(alpha = alpha),
-                        topLeft = Offset(x, top),
-                        size = Size(barW, (base - top).coerceAtLeast(0f)),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                    )
-                    val ey = yOf(p.expected.expenses)
-                    drawLine(c.ink.copy(alpha = .75f * alpha + .25f), Offset(x - 3.dp.toPx(), ey), Offset(x + barW + 3.dp.toPx(), ey), 2.dp.toPx(), cap = StrokeCap.Round)
-                    val lx = x + barW / 2
-                    val ly = yOf(p.projected.leftover * grow.value)
-                    if (!started) {
-                        leftover.moveTo(lx, ly)
-                        started = true
-                    } else {
-                        leftover.lineTo(lx, ly)
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(chartHeight)) {
+            val boxW = maxWidth
+            Canvas(
+                Modifier
+                    .fillMaxSize()
+                    .semantics { contentDescription = "Bar chart of monthly expenses against budget, with leftover line" }
+                    .pointerInput(y) {
+                        detectTapGestures(onPress = { o ->
+                            scrub = monthAt(o.x, size.width.toFloat())
+                            tryAwaitRelease()
+                            scrub = null
+                        })
                     }
-                    drawCircle(c.good, 3.5.dp.toPx(), Offset(lx, ly))
+                    .pointerInput(y) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { o -> scrub = monthAt(o.x, size.width.toFloat()) },
+                            onDragEnd = { scrub = null },
+                            onDragCancel = { scrub = null },
+                        ) { change, _ ->
+                            change.consume()
+                            scrub = monthAt(change.position.x, size.width.toFloat())
+                        }
+                    },
+            ) {
+                val axisH = 18.dp.toPx()
+                val leftPad = leftPadDp.toPx()
+                val plotH = size.height - axisH
+                val plotW = size.width - leftPad
+                val range = (maxV - minV).coerceAtLeast(1.0)
+                fun yOf(v: Double) = (plotH * (1 - (v - minV) / range)).toFloat()
+                // Quiet guides: the zero line plus two faint dashed levels, with compact labels.
+                listOf(0.0, maxV / 2, maxV / 1.1).forEach { g ->
+                    val gy = yOf(g)
+                    drawLine(
+                        if (g == 0.0) c.ink3.copy(alpha = .25f) else c.ink3.copy(alpha = .12f),
+                        Offset(leftPad, gy), Offset(size.width, gy), 1.dp.toPx(),
+                        pathEffect = if (g == 0.0) null else PathEffect.dashPathEffect(floatArrayOf(6f, 6f)),
+                    )
+                    val t = measurer.measure(Money.formatCompact(g), labelStyle)
+                    drawText(t, topLeft = Offset(0f, gy - t.size.height / 2f))
                 }
-                val t = measurer.measure(MonthKey.MONTH_NAMES[m - 1].take(1), labelStyle)
-                drawText(t, topLeft = Offset(leftPad + slot * (m - 1) + slot / 2 - t.size.width / 2f, size.height - t.size.height))
+                val slot = plotW / 12f
+                val barW = slot * .56f
+                val leftover = Path()
+                var started = false
+                val sel = scrub
+                for (m in 1..12) {
+                    val x = leftPad + slot * (m - 1) + (slot - barW) / 2
+                    val p = points[m]
+                    if (p != null) {
+                        val dim = if (sel != null && sel != m) 1f - .6f * focus else 1f
+                        val alpha = (if (p.closed) 1f else .45f) * dim
+                        val top = yOf(p.projected.expenses * grow.value)
+                        val base = yOf(0.0)
+                        drawRoundRect(
+                            c.accent.copy(alpha = alpha),
+                            topLeft = Offset(x, top),
+                            size = Size(barW, (base - top).coerceAtLeast(0f)),
+                            cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx()),
+                        )
+                        val ey = yOf(p.expected.expenses)
+                        drawLine(c.ink.copy(alpha = (.75f * (if (p.closed) 1f else .45f) + .25f) * dim), Offset(x - 3.dp.toPx(), ey), Offset(x + barW + 3.dp.toPx(), ey), 2.dp.toPx(), cap = StrokeCap.Round)
+                        val lx = x + barW / 2
+                        val ly = yOf(p.projected.leftover * grow.value)
+                        if (!started) {
+                            leftover.moveTo(lx, ly)
+                            started = true
+                        } else {
+                            leftover.lineTo(lx, ly)
+                        }
+                    }
+                    val t = measurer.measure(MonthKey.MONTH_NAMES[m - 1].take(1), if (sel == m) labelStyle.copy(color = c.ink) else labelStyle)
+                    drawText(t, topLeft = Offset(leftPad + slot * (m - 1) + slot / 2 - t.size.width / 2f, size.height - t.size.height))
+                }
+                if (started) drawPath(leftover, c.good, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                for (m in 1..12) {
+                    val p = points[m] ?: continue
+                    val lx = leftPad + slot * (m - 1) + slot / 2
+                    val ly = yOf(p.projected.leftover * grow.value)
+                    if (sel == m) {
+                        drawCircle(c.card, 6.dp.toPx(), Offset(lx, ly))
+                        drawCircle(c.good, 4.dp.toPx(), Offset(lx, ly))
+                    } else {
+                        drawCircle(c.good, 3.dp.toPx(), Offset(lx, ly))
+                    }
+                }
             }
-            if (started) drawPath(leftover, c.good, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+            val sel = scrub
+            val p = sel?.let { points[it] }
+            if (sel != null && p != null) {
+                val slot = (boxW - leftPadDp) / 12f
+                val cx = leftPadDp + slot * (sel - 1) + slot / 2
+                val tipW = 168.dp
+                val left = (cx - tipW / 2).coerceIn(0.dp, (boxW - tipW).coerceAtLeast(0.dp))
+                Column(
+                    Modifier
+                        .offset(x = left, y = 0.dp)
+                        .widthIn(max = tipW)
+                        .glass(androidx.compose.foundation.shape.RoundedCornerShape(12.dp), strong = true)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text((p.key.name + if (p.closed) "" else " · open").uppercase(), style = Budget.type.micro, color = c.ink3)
+                    Text(Money.format(p.projected.expenses), style = Budget.type.bodyStrong, color = c.ink)
+                    Text("Budget ${Money.format(p.expected.expenses)}", style = Budget.type.small, color = c.ink2)
+                    Text("Leftover ${Money.format(p.projected.leftover)}", style = Budget.type.small, color = if (p.projected.leftover < 0) c.bad else c.good)
+                }
+            }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             LegendItem(c.accent, "Expenses")
             LegendItem(c.accent.copy(alpha = .45f), "Open (projected)")
@@ -512,17 +586,17 @@ private fun LegendItem(color: Color, label: String) {
 @Composable
 private fun MonthsCard(y: YearSummary, onOpenMonth: (MonthKey) -> Unit) {
     val c = Budget.colors
-    BudgetCard(padding = PaddingValues(vertical = 8.dp)) {
-        CardHeader("Months", Modifier.padding(horizontal = 14.dp))
+    BudgetCard(padding = PaddingValues(top = 16.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)) {
+        CardHeader("Months", Modifier.padding(horizontal = 12.dp))
         y.months.forEach { p ->
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .tappable(shape = RectangleShape, onClick = { onOpenMonth(p.key) })
-                    .padding(horizontal = 14.dp, vertical = 9.dp),
+                    .tappable(shape = androidx.compose.foundation.shape.RoundedCornerShape(com.personal.budget.ui.theme.Radius.row), pressedFill = c.fill, onClick = { onOpenMonth(p.key) }, label = "Open ${p.key.label}")
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AppIcon(if (p.closed) Lucide.Lock else Lucide.LockOpen, if (p.closed) "Closed" else "Open", tint = if (p.closed) c.accentInk else c.ink3, size = 15.dp)
+                AppIcon(if (p.closed) Lucide.Lock else Lucide.LockOpen, if (p.closed) "Closed" else "Open", tint = if (p.closed) c.ink2 else c.ink3, size = 15.dp)
                 Spacer(Modifier.width(10.dp))
                 Text(p.key.name, style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
                 Text(if (p.closed) "Closed" else "Open", style = Budget.type.small, color = c.ink3)

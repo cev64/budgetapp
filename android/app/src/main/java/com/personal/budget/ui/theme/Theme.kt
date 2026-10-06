@@ -36,7 +36,7 @@ fun BudgetColors.toColorScheme(): ColorScheme {
         onSecondaryContainer = ink,
         tertiary = good,
         onTertiary = onAccent,
-        background = bg,
+        background = page,
         onBackground = ink,
         surface = bg,
         onSurface = ink,
@@ -77,6 +77,10 @@ private fun BudgetColors.withDynamic(s: ColorScheme): BudgetColors = copy(
     line2 = s.outline,
     glassBar = s.surface.copy(alpha = glassBar.alpha),
     glassCard = s.surfaceContainerLow.copy(alpha = glassCard.alpha),
+    page = s.surfaceContainerLow,
+    glass = s.surfaceContainerLowest.copy(alpha = glass.alpha),
+    glassStrong = s.surfaceContainerLowest.copy(alpha = glassStrong.alpha),
+    blobA = s.primary.copy(alpha = blobA.alpha),
 )
 
 @Composable

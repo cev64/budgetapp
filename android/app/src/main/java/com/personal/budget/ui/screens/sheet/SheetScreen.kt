@@ -41,7 +41,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
+import com.personal.budget.ui.components.blurredGlass
+import com.personal.budget.ui.components.glassEdge
+import com.personal.budget.ui.components.glassShadow
+import com.personal.budget.ui.theme.Radius
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalView
@@ -99,11 +102,11 @@ fun SheetScreen(main: MainViewModel, onGoToYear: () -> Unit) {
     val reduce = LocalReduceMotion.current
     Crossfade(targetState = layout.isCompact, animationSpec = tween(if (reduce) 0 else Motion.APPEAR, easing = Motion.Ease), label = "sheetFold") { compact ->
         if (compact) {
-            ScreenFrame(topBar = { GlassTopBar(micro = "Budget", title = "Sheet", scrolled = false) }) { padding ->
-                Box(
-                    Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    contentAlignment = Alignment.Center,
-                ) { UnfoldPrompt(onGoToYear) }
+            ScreenFrame(topBar = { GlassTopBar(title = "Sheet", scrolled = false) }) { padding ->
+                Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    com.personal.budget.ui.components.LargeTitle("Budget", "Sheet")
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { UnfoldPrompt(onGoToYear) }
+                }
             }
         } else {
             SheetContent(main, vm, listState, hScroll)
@@ -127,11 +130,23 @@ private fun SheetContent(main: MainViewModel, vm: SheetViewModel, listState: Laz
     val editing = remember { SheetEditing() }
     val title = if (monthKey != null) monthKey.label else "Summary · $year"
 
+    // Glass the chrome, not the cells: the title and tab bar float on the ambient field; the grid
+    // itself is one opaque, dense card so every cell stays crisp.
     ScreenFrame(topBar = {
-        GlassTopBar(micro = "Sheet", title = title, scrolled = listState.canScrollBackward)
+        GlassTopBar(title = title, scrolled = false)
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            com.personal.budget.ui.components.LargeTitle("Sheet", title, Modifier.padding(start = 8.dp, end = 12.dp))
+            BoxWithConstraints(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(end = 12.dp)
+                    .glassShadow(RoundedCornerShape(Radius.card))
+                    .clip(RoundedCornerShape(Radius.card))
+                    .background(Budget.colors.card)
+                    .glassEdge(RoundedCornerShape(Radius.card)),
+            ) {
                 val cols = rememberSheetColumns(maxWidth, BLabels)
                 CompositionLocalProvider(LocalSheetCols provides cols) {
                 if (monthKey != null) {
@@ -584,14 +599,14 @@ private fun TabBar(year: Int, months: List<MonthKey>, tab: String, vm: SheetView
     val options = listOf(SheetViewModel.SUMMARY to "Summary") + months.map { it.id to it.shortName }
     val selected = options.firstOrNull { it.first == tab }?.first ?: SheetViewModel.SUMMARY
     val next = months.maxOrNull()?.next() ?: MonthKey(year, 1)
+    val pill = RoundedCornerShape(Radius.pill)
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .shadow(10.dp, RoundedCornerShape(24.dp), ambientColor = c.shadow.copy(alpha = .12f), spotColor = c.shadow.copy(alpha = .14f))
-            .clip(RoundedCornerShape(24.dp))
-            .background(c.glassCard)
-            .drawBehind { drawLine(c.line, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
+            .padding(start = 0.dp, end = 12.dp, top = 10.dp, bottom = 4.dp)
+            .glassShadow(pill, large = true)
+            .blurredGlass(com.personal.budget.ui.components.LocalShellHaze.current, pill)
+            .glassEdge(pill)
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -606,7 +621,7 @@ private fun TabBar(year: Int, months: List<MonthKey>, tab: String, vm: SheetView
 
 /**
  * Summary + month tabs in a horizontal scroller. The selected tab is centred (clamped at the ends):
- * instantly on first show, then with the same 450 ms glide as the pill on every change. All 13 tabs
+ * instantly on first show, then with the same 350 ms spring-soft glide as the thumb. All 13 tabs
  * are always composed, so a plain scroller with measured positions centres exactly.
  */
 @Composable
@@ -625,7 +640,7 @@ private fun TabStrip(options: List<Pair<String, String>>, selected: String, onSe
             scroll.scrollTo(target)
             settled = true
         } else {
-            scroll.animateScrollTo(target, tween(Motion.GLIDE, easing = Motion.Ease))
+            scroll.animateScrollTo(target, tween(Motion.THUMB, easing = Motion.SpringSoft))
         }
     }
     Box(modifier.onSizeChanged { viewport = it.width }.horizontalScroll(scroll)) {
