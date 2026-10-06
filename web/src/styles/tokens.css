@@ -134,3 +134,90 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, .4);
   color-scheme: dark;
 }
+
+/* ---- Fluid glass v2 (docs/FLUID_GLASS_UI.md §2–§4): ambient field, glass, quiet fills, raised thumbs ---- */
+:root {
+  --page: #F4F6FB;
+  --blob-a: rgba(16, 89, 252, .07);
+  --blob-b: rgba(99, 102, 241, .05);
+  --blob-c: rgba(56, 189, 248, .04);
+  --glass: rgba(255, 255, 255, .74);
+  --glass-strong: rgba(255, 255, 255, .86);
+  /* Glass as it composites over the field (§4 contrast check): opaque stand-in for swipe faces and pinned cells. */
+  --glass-solid: #F8FAFE;
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, .55);
+  --glass-edge: 0 0 0 1px rgba(8, 32, 79, .06);
+  --glass-shadow: 0 1px 2px rgba(8, 32, 79, .04), 0 12px 32px -12px rgba(8, 32, 79, .14);
+  --glass-shadow-lg: 0 24px 64px -16px rgba(8, 32, 79, .28);
+  --glass-filter: blur(24px) saturate(160%);
+  --fill: rgba(8, 32, 79, .05);
+  --fill-2: rgba(8, 32, 79, .08);
+  --thumb: #FFFFFF;
+  --thumb-shadow: 0 1px 2px rgba(8, 32, 79, .08), 0 4px 12px -2px rgba(8, 32, 79, .12);
+  --bar-shadow: 0 8px 24px -12px rgba(8, 32, 79, .18);
+  --spring-soft: cubic-bezier(.3, 1.25, .5, 1);
+  /* Text on a --fill band (totals, inputs): tones mixed 10% toward ink so they stay AA on the
+     composited band (§4); identical to the base tones in dark, where the bands are already AA. */
+  --good-fill: #14763F;
+  --bad-fill: #C7252A;
+  --ink-3-fill: #5A6984;
+  /* Selected row: a raised white thumb in light; a quiet fill in dark (the .14 thumb would cost ink-3 AA). */
+  --row-sel: #FFFFFF;
+  --row-sel-shadow: var(--glass-hi), var(--thumb-shadow);
+  --r-card: 20px;
+  --r-sheet: 28px;
+  --r-menu: 18px;
+  --r-ctl: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0A1122;
+    --blob-a: rgba(74, 130, 255, .12);
+    --blob-b: rgba(99, 102, 241, .08);
+    --blob-c: rgba(56, 189, 248, .05);
+    --glass: rgba(20, 32, 56, .72);
+    --glass-strong: rgba(17, 27, 48, .88);
+    --glass-solid: #132039;
+    --glass-hi: inset 0 1px 0 rgba(255, 255, 255, .08);
+    --glass-edge: 0 0 0 1px rgba(255, 255, 255, .06);
+    --glass-shadow: 0 1px 2px rgba(0, 0, 0, .25), 0 16px 40px -14px rgba(0, 0, 0, .6);
+    --glass-shadow-lg: 0 24px 64px -16px rgba(0, 0, 0, .7);
+    --fill: rgba(255, 255, 255, .06);
+    --fill-2: rgba(255, 255, 255, .10);
+    --thumb: rgba(255, 255, 255, .14);
+    --thumb-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px -2px rgba(0, 0, 0, .4);
+    --bar-shadow: 0 8px 24px -12px rgba(0, 0, 0, .6);
+    --good-fill: #4ADE80;
+    --bad-fill: #FF8585;
+    --ink-3-fill: #91A2BF;
+    --row-sel: rgba(255, 255, 255, .10);
+    --row-sel-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 0 1px rgba(255, 255, 255, .06), 0 4px 12px -2px rgba(0, 0, 0, .4);
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0A1122;
+  --blob-a: rgba(74, 130, 255, .12);
+  --blob-b: rgba(99, 102, 241, .08);
+  --blob-c: rgba(56, 189, 248, .05);
+  --glass: rgba(20, 32, 56, .72);
+  --glass-strong: rgba(17, 27, 48, .88);
+  --glass-solid: #132039;
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, .08);
+  --glass-edge: 0 0 0 1px rgba(255, 255, 255, .06);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, .25), 0 16px 40px -14px rgba(0, 0, 0, .6);
+  --glass-shadow-lg: 0 24px 64px -16px rgba(0, 0, 0, .7);
+  --fill: rgba(255, 255, 255, .06);
+  --fill-2: rgba(255, 255, 255, .10);
+  --thumb: rgba(255, 255, 255, .14);
+  --thumb-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px -2px rgba(0, 0, 0, .4);
+  --bar-shadow: 0 8px 24px -12px rgba(0, 0, 0, .6);
+  --good-fill: #4ADE80;
+  --bad-fill: #FF8585;
+  --ink-3-fill: #91A2BF;
+  --row-sel: rgba(255, 255, 255, .10);
+  --row-sel-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 0 1px rgba(255, 255, 255, .06), 0 4px 12px -2px rgba(0, 0, 0, .4);
+}
+/* No backdrop-filter: glass falls back to the opaque brand card. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:not(#_) { --glass: var(--card); --glass-strong: var(--card) }
+}

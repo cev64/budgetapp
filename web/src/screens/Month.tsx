@@ -9,13 +9,14 @@ import { Sheet } from '../ui/Sheet';
 import { Progress, Switch } from '../ui/controls';
 import { FlipList } from '../ui/FlipList';
 import { CardHead, CategoryDot, Diff, Empty, TrackingIcon, useMoney } from '../ui/bits';
-import { useLayoutMode } from '../ui/hooks';
-import { rollText, haptic } from '../ui/motion';
+import { useGlide, useLayoutMode } from '../ui/hooks';
+import { TxRow } from './TxRow';
+import { rollText, haptic, reducedMotion } from '../ui/motion';
 import { toast } from '../ui/Toast';
 import { CategoryDetail } from './CategoryDetail';
 import { compareTransactionsDesc } from './txSort';
 import { KIND_LABEL, KIND_ORDER, type Line, type MonthSummary, type Totals } from '../domain/calc';
-import { addMonths, compareYm, currentYm, monthName, monthShort, parseYm, shortDate, ymKey, ymLabel } from '../domain/dates';
+import { addMonths, compareYm, currentYm, monthName, monthShort, parseYm, ymKey, ymLabel } from '../domain/dates';
 import { suggestedMonth } from '../domain/newMonth';
 import { EMPTY_MONTH_MESSAGE, monthClosedMessage } from '../domain/format';
 import type { CategoryKind, YM } from '../domain/types';
@@ -128,8 +129,7 @@ function MonthHeader({ summary }: { summary: MonthSummary }) {
       </div>
       {summary.exists && (
         <div className="closed-toggle">
-          {summary.closed && <span className="pill accent closed-pill arrive">Closed: summary uses actuals</span>}
-          <label className="closed-label">
+          <label className={`closed-label${summary.closed ? ' on' : ''}`}>
             {summary.closed ? <Lock size={16} strokeWidth={1.75} /> : <LockOpen size={16} strokeWidth={1.75} />}
             <span>Closed</span>
             <Switch checked={summary.closed} onChange={toggleClosed} label="Month closed" />
@@ -141,18 +141,34 @@ function MonthHeader({ summary }: { summary: MonthSummary }) {
   );
 }
 
-/** Year + month grid. Existing months show their status; others open the "create" state. */
+/**
+ * Year + month grid. Existing months show their status; others open the "create" state. The selected
+ * month sits on a raised thumb that glides to the tapped month before the sheet closes.
+ */
 function MonthPicker({ open, onClose, current }: { open: boolean; onClose: () => void; current: YM }) {
   const { calc } = useData();
   const navigate = useNavigate();
   const [year, setYear] = useState(current.year);
+  const [picked, setPicked] = useState<YM>(current);
   const [ripple, setRipple] = useState(0);
+  const gridRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (open) {
       setYear(current.year);
+      setPicked(current);
       setRipple((r) => r + 1);
     }
-  }, [open, current.year]);
+  }, [open, current.year, current.month]);
+  useGlide(gridRef, `${year}:${picked.year}-${picked.month}:${ripple}`, { grid: true, cls: 'month-thumb', selector: '[aria-current="true"]' });
+
+  const go = (ym: YM) => {
+    setPicked(ym);
+    haptic(6);
+    setTimeout(() => {
+      onClose();
+      navigate(`/month/${ymKey(ym)}`);
+    }, reducedMotion() ? 0 : 200);
+  };
 
   return (
     <Sheet open={open} onClose={onClose} title="Go to month">
@@ -165,21 +181,19 @@ function MonthPicker({ open, onClose, current }: { open: boolean; onClose: () =>
           <ChevronRight size={20} strokeWidth={1.75} />
         </button>
       </div>
-      <div key={`${year}:${ripple}`} className="month-grid grid enter">
+      <div key={`${year}:${ripple}`} ref={gridRef} className="month-grid grid enter">
         {Array.from({ length: 12 }, (_, i) => {
           const ym = { year, month: i + 1 };
           const m = calc.month(ym);
-          const on = year === current.year && i + 1 === current.month;
+          const on = year === picked.year && i + 1 === picked.month;
           return (
             <button
               key={i}
               type="button"
               className={`pick month-cell${on ? ' on' : ''}${m ? '' : ' missing'}`}
+              aria-current={on ? 'true' : undefined}
               style={{ '--n': (i % 4) + Math.floor(i / 4) } as React.CSSProperties}
-              onClick={() => {
-                onClose();
-                navigate(`/month/${ymKey(ym)}`);
-              }}
+              onClick={() => go(ym)}
             >
               <span className="month-cell-name">{monthShort(i + 1)}</span>
               <span className="month-cell-status">
@@ -228,14 +242,14 @@ function NextMonthOffer({ ym }: { ym: YM }) {
   if (!suggestion || !latest || compareYm(latest, ym) !== 0 || compareYm(suggestion, ym) <= 0) return null;
   return (
     <div className="banner card next-month">
-      <CalendarPlus size={20} strokeWidth={1.75} className="banner-icon" />
+      <span className="banner-icon"><CalendarPlus size={20} strokeWidth={1.75} /></span>
       <div className="banner-text">
         <strong>Ready for {monthName(suggestion.month)}?</strong>
         <span>Budgets copy forward and recurring items are pre-filled.</span>
       </div>
       <button
         type="button"
-        className="btn primary"
+        className="btn"
         onClick={async () => {
           if (await actions.createMonth(suggestion)) {
             toast(`${ymLabel(suggestion)} started`);
@@ -335,7 +349,7 @@ function BudgetRow({ line, to, selected }: { line: Line; to: string; selected: b
           <CategoryDot category={c} />
           <span className="ellipsis">{c.name}</span>
           <TrackingIcon category={c} />
-          {line.override && <span className="pill sm manual-pill">manual</span>}
+          {line.override && <span className="manual-pill">manual</span>}
         </span>
         <span className="num-cell">{money(line.expected)}</span>
         <span className="num-cell"><Num value={line.actual} format={money} /></span>
@@ -350,7 +364,7 @@ function BudgetRow({ line, to, selected }: { line: Line; to: string; selected: b
 
 function TransactionsTab({ ym }: { ym: YM }) {
   const { calc } = useData();
-  const { openAdd, editTransaction } = useSheets();
+  const { openAdd } = useSheets();
   const money = useMoney();
   const [filter, setFilter] = useState<string | null>(null);
   const all = useMemo(() => calc.transactionsIn(ym).sort(compareTransactionsDesc), [calc, ym]);
@@ -380,19 +394,7 @@ function TransactionsTab({ ym }: { ym: YM }) {
         <Empty title="No transactions" icon={<Receipt size={24} strokeWidth={1.5} />}>Nothing logged in {ymLabel(ym)} yet.</Empty>
       ) : (
         <FlipList className="rows" scope={filter ?? 'all'} signature={list.map((t) => t.id).join()}>
-          {list.map((t) => {
-            const c = calc.categoryById.get(t.category_id);
-            return (
-              <button key={t.id} data-k={t.id} type="button" className="row tx-row" onClick={() => editTransaction(t)}>
-                <span className="tx-date muted">{t.date ? shortDate(t.date) : '—'}</span>
-                <span className="tx-main">
-                  <span className="tx-item ellipsis">{t.item || <span className="muted">No description</span>}</span>
-                  {c && !filter && <span className="tx-meta"><span className="pill sm cat-pill"><CategoryDot category={c} />{c.name}</span></span>}
-                </span>
-                <span className={`tx-amount${t.amount < 0 ? ' tone-good' : ''}`}>{money(t.amount)}</span>
-              </button>
-            );
-          })}
+          {list.map((t) => <TxRow key={t.id} t={t} showCategory={!filter} />)}
         </FlipList>
       )}
     </section>

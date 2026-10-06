@@ -2,8 +2,10 @@ import { useId, useMemo, useState, type PointerEvent } from 'react';
 import type { Point } from '../domain/history';
 import { useWidth } from './hooks';
 
-// Hand-rolled SVG area chart for net worth history (UI_ANATOMY "Net worth"): smooth accent line,
-// 12% accent fill fading to 0, faint baseline, first/last date labels, scrub cursor + glass tooltip.
+// Hand-rolled SVG area chart for net worth history (UI_ANATOMY "Net worth"): smooth accent line that
+// draws in once per range (the area fades in after it), 14% accent fill fading to 0, faint baseline, a
+// dashed zero line when the series crosses $0, first/last date labels, scrub cursor + glass tooltip.
+// Remount it (key) to replay the draw-in, e.g. when the range changes.
 
 type XY = [number, number];
 
@@ -83,7 +85,8 @@ export function HistoryChart({ points, overlay, overlayLabel, label, height, for
     const base = height - pad.b;
     const area = `${line}L${main[main.length - 1]![0]},${base}L${main[0]![0]},${base}Z`;
     const over = overlay && overlay.length > 1 ? monotonePath(xy(overlay)) : null;
-    return { x, y, main, line, area, over, base };
+    const zero = lo < 0 && hi > 0 ? y(0) : null;
+    return { x, y, main, line, area, over, base, zero };
   }, [width, points, overlay, height]);
 
   const overlayAt = (date: string) => overlay?.find((p) => p.date === date);
@@ -123,9 +126,10 @@ export function HistoryChart({ points, overlay, overlayLabel, label, height, for
             </linearGradient>
           </defs>
           <line x1={0} x2={width} y1={geo.base} y2={geo.base} className="hchart-base" />
-          <path d={geo.area} fill={`url(#${gid})`} />
+          <path d={geo.area} fill={`url(#${gid})`} className="hchart-area" />
+          {geo.zero != null && <line x1={0} x2={width} y1={geo.zero} y2={geo.zero} className="hchart-zero" />}
           {geo.over && <path d={geo.over} className="hchart-overlay" />}
-          <path d={geo.line} className="hchart-line" />
+          <path d={geo.line} className="hchart-line draw" pathLength={1} />
           {hxy && (
             <g className="hchart-cursor">
               <line x1={hxy[0]} x2={hxy[0]} y1={pad.t - 4} y2={geo.base} />
@@ -143,7 +147,7 @@ export function HistoryChart({ points, overlay, overlayLabel, label, height, for
       )}
       {hp && hxy && (
         <div
-          className={`hchart-tip glass-card${hxy[1] < 84 ? ' below' : ''}`}
+          className={`hchart-tip${hxy[1] < 84 ? ' below' : ''}`}
           style={{ left: Math.min(Math.max(hxy[0], 76), width - 76), top: hxy[1] < 84 ? hxy[1] + 14 : hxy[1] - 14 }}
         >
           <div className="micro">{dateLabel(hp.date, true)}</div>
@@ -168,7 +172,7 @@ export function Sparkline({ points, width = 64, height = 22 }: { points: Point[]
   const up = vs[vs.length - 1]! >= vs[0]!;
   return (
     <svg className={`spark ${up ? 'up' : 'down'}`} width={width} height={height} aria-hidden="true">
-      <path d={monotonePath(xy)} />
+      <path d={monotonePath(xy)} pathLength={1} />
     </svg>
   );
 }

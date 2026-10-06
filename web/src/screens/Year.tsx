@@ -1,10 +1,11 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState, type PointerEvent } from 'react';
 import { useWidth } from '../ui/hooks';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { ChartColumn, ChevronDown, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
 import { Page } from '../app/Shell';
 import { useData } from '../app/session';
 import { Num } from '../ui/Num';
+import { Seg } from '../ui/Seg';
 import { CardHead, CategoryDot, Diff, Empty, useMoney, type MoneyFormat } from '../ui/bits';
 import { totalsFor, KIND_LABEL, KIND_ORDER, type Calc, type YearSummary } from '../domain/calc';
 import { currentYm, monthName, monthShort, ymKey } from '../domain/dates';
@@ -36,11 +37,9 @@ export function YearScreen() {
           </button>
         </div>
         {years.length > 1 && (
-          <div className="chips year-chips">
-            {years.map((y) => (
-              <Link key={y} to={`/year/${y}`} className={`pick chip${y === year ? ' on' : ''}`}>{y}</Link>
-            ))}
-          </div>
+          <Seg className="year-seg" label="Year" value={years.includes(year) ? String(year) : ''}
+            onChange={(y) => navigate(`/year/${y}`)}
+            options={years.map((y) => ({ value: String(y), label: String(y) }))} />
         )}
       </div>
 
@@ -67,7 +66,7 @@ export function YearScreen() {
           <div className="year-side">
             <section className="card chart-card">
               <CardHead title="Spending by month" />
-              <YearChart calc={calc} year={year} money={money} />
+              <YearChart key={year} calc={calc} year={year} money={money} />
             </section>
             <MonthsList calc={calc} summary={summary} money={money} />
           </div>
@@ -276,11 +275,19 @@ function YearChart({ calc, year, money }: { calc: Calc; year: number; money: Mon
   const cx = (i: number) => pad.l + slotW * i + slotW / 2;
   const linePts = slots.map((s, i) => (s.exists ? `${cx(i)},${y(s.leftover)}` : null)).filter(Boolean);
   const shown = hover != null ? slots[hover] : null;
+  // Scrub: the pointer anywhere over the plot picks the nearest month (touch drags across months).
+  const onMove = (e: PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const i = Math.floor((e.clientX - r.left - pad.l) / (slotW || 1));
+    setHover(i >= 0 && i < 12 ? i : null);
+  };
+  const tipX = hover != null ? Math.min(Math.max(cx(hover), 92), width - 92) : 0;
 
   return (
     <div className="chart" ref={ref}>
       {width > 0 && (
-        <svg width={width} height={H} role="img" aria-label={`Expenses, budget and leftover per month in ${year}`}>
+        <svg width={width} height={H} role="img" aria-label={`Expenses, budget and leftover per month in ${year}`}
+          onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setHover(null)} onPointerCancel={() => setHover(null)}>
           {ticks.map((v) => (
             <g key={v}>
               <line x1={pad.l} x2={width - pad.r} y1={y(v)} y2={y(v)} className={v === 0 ? 'axis zero' : 'axis'} />
@@ -288,13 +295,13 @@ function YearChart({ calc, year, money }: { calc: Calc; year: number; money: Mon
             </g>
           ))}
           {slots.map((s, i) => (
-            <g key={s.month} className={`slot${s.exists ? '' : ' missing'}${s.closed ? ' closed' : ' open'}`}
-              onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)}>
+            <g key={s.month} className={`slot${s.exists ? '' : ' missing'}${s.closed ? ' closed' : ' open'}${hover === i && s.exists ? ' on' : ''}`}
+              style={{ '--i': i } as React.CSSProperties}>
               <rect x={pad.l + slotW * i} y={pad.t} width={slotW} height={H - pad.t - pad.b} className="hit" />
               {s.exists && (
                 <>
                   <rect x={cx(i) - barW / 2} y={Math.min(y(s.spent), y(0))} width={barW}
-                    height={Math.max(1, Math.abs(y(0) - y(s.spent)))} rx={3} className="bar-spent" />
+                    height={Math.max(1, Math.abs(y(0) - y(s.spent)))} rx={Math.min(5, barW / 2)} className="bar-spent" />
                   <line x1={cx(i) - barW / 2 - 3} x2={cx(i) + barW / 2 + 3} y1={y(s.budget)} y2={y(s.budget)} className="budget-mark" />
                 </>
               )}
@@ -303,24 +310,24 @@ function YearChart({ calc, year, money }: { calc: Calc; year: number; money: Mon
               </text>
             </g>
           ))}
-          {linePts.length > 1 && <polyline points={linePts.join(' ')} className="leftover-line" />}
+          {linePts.length > 1 && <polyline points={linePts.join(' ')} className="leftover-line" pathLength={1} />}
+          {shown && shown.exists && hover != null && <line x1={cx(hover)} x2={cx(hover)} y1={pad.t} y2={H - pad.b} className="scrub" />}
           {slots.map((s, i) => s.exists && <circle key={s.month} cx={cx(i)} cy={y(s.leftover)} r={3} className={`leftover-dot${s.closed ? '' : ' open'}`} />)}
         </svg>
       )}
+      {shown && shown.exists && (
+        <div className="chart-tip" style={{ left: tipX }} role="status">
+          <div className="chart-tip-title">{monthName(shown.month)}{shown.closed ? '' : ' · projected'}</div>
+          <div className="chart-tip-line"><span>Spent</span><strong>{money(shown.spent)}</strong></div>
+          <div className="chart-tip-line"><span>Budget</span><strong>{money(shown.budget)}</strong></div>
+          <div className="chart-tip-line"><span>Leftover</span><strong className={shown.leftover < 0 ? 'tone-bad' : ''}>{money(shown.leftover)}</strong></div>
+        </div>
+      )}
       <div className="chart-legend">
-        {shown && shown.exists ? (
-          <span className="chart-readout">
-            <strong>{monthName(shown.month)}</strong> · spent {money(shown.spent)} of {money(shown.budget)} · leftover {money(shown.leftover)}
-            {shown.closed ? '' : ' (projected)'}
-          </span>
-        ) : (
-          <>
-            <span><i className="key spent" />Expenses</span>
-            <span><i className="key mark" />Budget</span>
-            <span><i className="key left" />Leftover</span>
-            <span className="muted">Lighter = open month</span>
-          </>
-        )}
+        <span><i className="key spent" />Expenses</span>
+        <span><i className="key mark" />Budget</span>
+        <span><i className="key left" />Leftover</span>
+        <span className="faint">Lighter = open month</span>
       </div>
     </div>
   );

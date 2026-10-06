@@ -85,11 +85,12 @@ web/
     app/                     Root (auth gate), routes, Shell (nav, top bar, add sheet), session context
     screens/                 Home, Month (+ CategoryDetail), Year, NetWorth (+ NetWorthHistory), Sheet (+ sheetGrid),
                              Settings, Auth,
-                             TransactionSheet, McpSection
+                             TransactionSheet, TxRow (swipe-to-delete row + Undo), McpSection
     ui/                      Fluid Glass kit: motion.ts (tint, glideIndicator, rollText, FLIP), Seg,
-                             Sheet + ask(), Toast, Menu, FlipList, Num, controls, theme, Brand (logo),
+                             Sheet + ask() (drag-to-dismiss), Toast, Menu, FlipList, Num, controls, theme,
+                             Brand (logo), Backdrop (ambient field), SwipeRow, gesture.ts (swipe / drag maths),
                              HistoryChart (area chart + Sparkline)
-    styles/                  tokens.css (light + dark), base.css (guide §5–§7), app.css (layout, screens)
+    styles/                  tokens.css (brand + v2 glass, light + dark), base.css (guide §5–§7), app.css (layout, screens)
   test/                      vitest suites
 ```
 
@@ -155,13 +156,21 @@ has no realtime subscription and is not in backups. In demo mode the section is 
 
 ## Layout and design
 
-Fluid Glass + brand tokens (`design/tokens.json` v2) are CSS variables (`src/styles/tokens.css`).
-Labels on accent fills use `--on-accent` (white in light, navy in dark), toasts `--on-toast`, inputs
-`--control-border`, focus is a 2px `--focus-ring` with 2px offset, sheets and floating bars have radius 24.
-Type follows the v2 scale: body 16/24, table numbers 16/500 with tabular lining figures, micro 12/600,
-display Barlow Condensed 600 40/44, titles 24/30, hero numbers 32/40. Type never shrinks to fit: narrow
-cards switch layout instead (names move above the number columns under ~340px of card width).
-Hit targets are at least 44px (small controls get an invisible 44px hit area).
+**Fluid glass v2** (since 1.3.0, `docs/FLUID_GLASS_UI.md`) over the unchanged brand tokens (`design/tokens.json` v2),
+all CSS variables in `src/styles/tokens.css`. Every screen sits on a fixed ambient backdrop (`src/ui/Backdrop.tsx`:
+three slowly drifting radial blobs over `--page`); cards, tiles, sheets, menus, the nav and the condensed top bar
+are frosted glass (`--glass` / `--glass-strong`, blur 24 + saturate 160%, a 1px highlight, a hairline ring and a
+diffuse navy shadow; opaque `--card` where `backdrop-filter` is missing). No borders or dividers inside cards:
+totals sit on a quiet `--fill` band, rows use spacing. Selection is a raised `--thumb` (segmented controls, chips,
+the category picker, the month-picker grid, the selected Month row), never an accent fill or stripe; the accent
+is kept for Add / Save, the switch and data marks. Buttons are ghost fills except the primary; links are ink-2;
+inputs are fills with a 2px `--focus-ring` (2px offset). Radii: cards 20, sheets 28, menus 18, controls 12,
+pills 999. Text contrast is checked on the composited glass in both themes; text on `--fill` bands uses the
+fill-safe tones (`--good-fill`, `--bad-fill`, `--ink-3-fill`). Type: body 16/24, tabular lining figures, micro
+12/500, card titles 17/600, display Barlow Condensed 600 40/44, hero numbers 48/52, tiles 24/32. Type never
+shrinks to fit: narrow cards switch layout instead (names move above the number columns under ~340px of card
+width). Hit targets are at least 44px (small controls get an invisible 44px hit area). No explanatory captions
+under toggles.
 
 Brand: the side nav shows the logo lockup and the rail / sign-in screen show the mark, inlined from
 `design/brand/logo-lockup.svg` and `logo-mark.svg` with their two colours mapped to `--ink` / `--accent`
@@ -170,14 +179,21 @@ Brand: the side nav shows the logo lockup and the rail / sign-in screen show the
 the exact strings from UI_ANATOMY "Brand (v2)" (saved / over-budget / month-closed / empty month / sign-in).
 Money display follows DOMAIN_RULES §8: whole dollars from $1,000 up; edit fields show the exact value. The dark theme follows
 `prefers-color-scheme` unless Settings → Appearance sets Light or Dark (`data-theme` on `<html>`,
-stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a floating glass bottom bar (Home, Month, Year, Net worth, Sheet) with a
-round Add button above it; 600–1023px an 80px rail with Add on top; from 1024px a 220px side nav, an Add button
-in the top bar, and multi-pane screens (Month list + category detail, Year tables + chart, Net worth accounts and
-ledger side by side). Phone width (412px, Galaxy Fold cover) is a primary target, and nothing scrolls
+stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a detached floating glass pill nav (Home, Month,
+Year, Net worth, Sheet) with a gliding indicator and the round Add beside it; 600–1023px a 76px floating glass rail
+with Add on top; from 1024px a 220px floating glass side nav, an Add button in the top bar, and multi-pane screens
+(Month list + category detail, Year tables + chart, Net worth accounts and ledger side by side). The Sheet route
+always uses the rail. Each screen has a large title that scrolls away under a 52px top bar, which then turns to
+glass with a compact title. Phone width (412px, Galaxy Fold cover) is a primary target, and nothing scrolls
 sideways at 360px. Keyboard: **N** opens the add sheet; Escape closes sheets and menus.
 
-Motion: gliding segmented/nav indicators, rolling numbers, FLIP lists that tint new rows accent and
-removed rows red, spring sheets and toasts. `prefers-reduced-motion` turns all of it off.
+Motion and gestures (all off or snapping with `prefers-reduced-motion`): press-scale on everything tappable,
+segmented / nav / month-picker thumbs that slide on a soft spring, rolling numbers, FLIP lists, spring sheets and
+toasts, the net worth line drawing in once per range (with a scrub tooltip), Year chart bars growing in with a
+scrub tooltip, sparklines drawing in. On touch, transaction rows swipe left to delete (arms at 96px / 30%, haptic
+tick, Undo toast; `src/ui/SwipeRow.tsx`, `src/screens/TxRow.tsx`) and phone sheets drag down to dismiss (past
+120px or a 0.6 px/ms flick; `src/ui/Sheet.tsx`, maths in `src/ui/gesture.ts`). Deleting a transaction from its sheet
+also uses the Undo toast instead of a confirm.
 
 ## PWA
 
@@ -204,8 +220,10 @@ ledger categories appended to the shortest column; ledger rows by date, undated 
 transactions with undo, month closed, account balances, ledger entries + settle, "+" = next month); the
 numbers all come from the domain calc, and Summary row 22's Difference is the leftover vs plan (§4b).
 `Sheet.tsx` renders a real `<table role="grid">` with roving tabindex, arrows/Tab/Enter/F2/Escape, typing
-to edit, right-click / ⋮ / Shift+F10 menus, sticky B–E columns while the ledgers scroll, and a bottom glass
-tab bar (year switcher, Summary + months, "+"). Below 600px it shows the "needs a wider screen" card.
+to edit, right-click / ⋮ / Shift+F10 menus, sticky B–E columns while the ledgers scroll, and a floating glass
+pill tab bar (year switcher, Summary + months on a sliding thumb, "+"). The grid itself stays dense and opaque
+(cells on `--card` / `--surface` with 1px lines); only the chrome around it is glass. Below 600px it shows the
+"needs a wider screen" card.
 
 ## Removed: Meals
 

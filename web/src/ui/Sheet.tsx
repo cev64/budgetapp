@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { reducedMotion } from './motion';
+import { sheetOffset, sheetShouldClose } from './gesture';
 
-const EXIT_MS = 270; // ~60% of the .45s entrance
+const EXIT_MS = 220; // docs/FLUID_GLASS_UI.md §2: sheet in 350 ms spring, out 220 ms ease
 
 let openSheets = 0;
 /** True while any sheet is open (keyboard shortcuts stay quiet). */
@@ -22,8 +23,9 @@ interface SheetProps {
 }
 
 /**
- * Modal sheet (FLUID_GLASS_UI §7.4): un-hidden, then `.open` two frames later so it springs in;
- * exits faster. A bottom sheet under 600px. Escape and a backdrop click close it.
+ * Modal glass sheet (FLUID_GLASS_UI §5, §7): un-hidden, then `.open` two frames later so it springs in;
+ * exits faster. A bottom sheet under 600px whose grabber / header can be dragged down to dismiss.
+ * Escape and a backdrop click close it.
  */
 export function Sheet({ open, onClose, title, footer, children, wide, ariaLabel }: SheetProps) {
   const [mounted, setMounted] = useState(open);
@@ -32,8 +34,44 @@ export function Sheet({ open, onClose, title, footer, children, wide, ariaLabel 
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
+  // Drag-to-dismiss (phones): the grabber / header follows the finger; thresholds live in gesture.ts.
+  const [drag, setDrag] = useState<{ dy: number; closing: boolean } | null>(null);
+  const track = useRef<{ y: number; dy: number; t: number; v: number; id: number } | null>(null);
+  const onDown = (e: RPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !window.matchMedia('(max-width: 599px)').matches) return;
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea')) return;
+    track.current = { y: e.clientY, dy: 0, t: performance.now(), v: 0, id: e.pointerId };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // no active pointer (synthetic event): the drag still works without capture
+    }
+    setDrag({ dy: 0, closing: false });
+  };
+  const onMove = (e: RPointerEvent<HTMLDivElement>) => {
+    const tr = track.current;
+    if (!tr || e.pointerId !== tr.id) return;
+    const now = performance.now();
+    const dy = e.clientY - tr.y;
+    tr.v = (dy - tr.dy) / Math.max(1, now - tr.t);
+    tr.dy = dy;
+    tr.t = now;
+    setDrag({ dy, closing: false });
+  };
+  const onUp = () => {
+    const tr = track.current;
+    track.current = null;
+    if (!tr) return;
+    if (tr.dy > 0 && sheetShouldClose(tr.dy, tr.v)) {
+      setDrag({ dy: tr.dy, closing: true });
+      setTimeout(() => closeRef.current(), reducedMotion() ? 0 : 200);
+    } else setDrag(null);
+  };
+
   useEffect(() => {
     if (open) {
+      // A flung sheet keeps its drag position until it unmounts; reset when it opens again.
+      setDrag(null);
       setMounted(true);
       let b = 0;
       const a = requestAnimationFrame(() => {
@@ -77,26 +115,37 @@ export function Sheet({ open, onClose, title, footer, children, wide, ariaLabel 
   }, [mounted]);
 
   if (!mounted) return null;
+  const dragY = drag ? (drag.closing ? null : sheetOffset(drag.dy)) : 0;
+  const sheetStyle: CSSProperties | undefined = drag
+    ? { transform: dragY == null ? 'translateY(110%)' : `translateY(${dragY}px)` }
+    : undefined;
+  // The scrim fades as the sheet is pulled down.
+  const modalStyle = drag ? ({ '--scrim-o': drag.closing ? 0 : Math.max(0.15, 1 - Math.max(0, drag.dy) / 360) } as CSSProperties) : undefined;
   return createPortal(
     <div
       className={`modal${shown && open ? ' open' : ''}`}
+      style={modalStyle}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         ref={sheetRef}
-        className={`sheet${wide ? ' wide' : ''}`}
+        className={`sheet${wide ? ' wide' : ''}${drag && !drag.closing ? ' dragging' : ''}${drag?.closing ? ' flung' : ''}`}
+        style={sheetStyle}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel ?? title}
         tabIndex={-1}
       >
-        <div className="sheet-head">
-          <h2 className="sheet-title">{title}</h2>
-          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
-            <X size={18} strokeWidth={1.75} />
-          </button>
+        <div className="sheet-grab" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+          <span className="grabber" aria-hidden="true" />
+          <div className="sheet-head">
+            <h2 className="sheet-title">{title}</h2>
+            <button type="button" className="icon-btn sheet-close" aria-label="Close" onClick={onClose}>
+              <X size={18} strokeWidth={1.75} />
+            </button>
+          </div>
         </div>
         <div className="sheet-body">{children}</div>
         {footer && <div className="actions">{footer}</div>}

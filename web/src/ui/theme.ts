@@ -14,7 +14,7 @@ export function applyTheme(pref: ThemePref): void {
   if (pref === 'system') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', pref);
   const dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0A1122' : '#FFFFFF');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0A1122' : '#F4F6FB');
 }
 
 export function setThemePref(pref: ThemePref): void {

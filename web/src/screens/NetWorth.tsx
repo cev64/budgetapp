@@ -154,7 +154,7 @@ function AccountRow({ view, onEdit, onHistory }: { view: AccountView; onEdit: ()
         <span className="acct-name ellipsis">{a.name}</span>
         {linked && (
           <span className="acct-auto">
-            <span className="pill sm accent">auto</span>
+            <span className="tag">auto</span>
             <span className="muted small ellipsis">
               {money(a.base_amount)} + {view.linked?.match_multiplier !== 1 ? `${view.linked?.match_multiplier}× ` : ''}{view.linked?.name ?? 'contributions'}
             </span>
@@ -246,7 +246,7 @@ function AccountSheet({ account, onClose }: { account: Account | null; onClose: 
             </Field>
           )}
           <label className="switch-row">
-            <span>Super liquid <span className="muted small">(counts toward liquid assets)</span></span>
+            <span>Super liquid</span>
             <Switch checked={draft.liquid} onChange={(v) => set({ liquid: v })} label="Super liquid" />
           </label>
         </form>

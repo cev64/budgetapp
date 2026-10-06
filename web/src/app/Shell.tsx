@@ -121,16 +121,14 @@ function SideNav({ mode, onAdd }: { mode: 'medium' | 'expanded'; onAdd: () => vo
   );
 }
 
+/** Phones: a detached floating glass pill (five destinations) with a gliding indicator, Add beside it. */
 function BottomNav({ onAdd }: { onAdd: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
   useGlide(ref, pathname, { cls: 'nav-ind' });
   return (
-    <>
-      <button type="button" className="fab" onClick={onAdd} aria-label="Add transaction">
-        <Plus size={24} strokeWidth={2} />
-      </button>
-      <nav className="bottom-nav glass-bar" aria-label="Main">
+    <div className="dock">
+      <nav className="bottom-nav" aria-label="Main">
         <div ref={ref} className="nav-list">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end} className="nav-item">
@@ -140,7 +138,10 @@ function BottomNav({ onAdd }: { onAdd: () => void }) {
           ))}
         </div>
       </nav>
-    </>
+      <button type="button" className="fab" onClick={onAdd} aria-label="Add transaction">
+        <Plus size={24} strokeWidth={2} />
+      </button>
+    </div>
   );
 }
 
@@ -154,7 +155,6 @@ interface PageProps {
   className?: string;
 }
 
-/** Screen frame: sticky glass top bar (shadow once content scrolls under it) and the content column. */
 /** Layout mode for navigation: like useLayoutMode, but the Sheet route uses the rail instead of the side nav. */
 function useNavMode() {
   const mode = useLayoutMode();
@@ -162,29 +162,29 @@ function useNavMode() {
   return mode === 'expanded' && pathname.startsWith('/sheet') ? 'medium' : mode;
 }
 
+/**
+ * Screen frame. A large title block scrolls with the content; once it passes under the 52px top bar,
+ * the bar turns to glass and a compact title fades in (docs/FLUID_GLASS_UI.md §5).
+ */
 export function Page({ label, title, actions, children, className }: PageProps) {
   const sentinel = useRef<HTMLDivElement>(null);
-  const [scrolled, setScrolled] = useState(false);
+  const [condensed, setCondensed] = useState(false);
   const navMode = useNavMode();
   const { openAdd } = useSheets();
   const location = useLocation();
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
-    const io = new IntersectionObserver(([entry]) => setScrolled(!entry!.isIntersecting));
+    const io = new IntersectionObserver(([entry]) => setCondensed(!entry!.isIntersecting), { rootMargin: '-52px 0px 0px 0px' });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
   return (
     <>
-      <div ref={sentinel} className="top-sentinel" aria-hidden="true" />
-      <header className={`topbar glass-bar${scrolled ? ' scrolled' : ''}`}>
+      <header className={`topbar${condensed ? ' condensed' : ''}`}>
         <div className="topbar-inner">
-          <div className="topbar-title">
-            <div className="micro">{label}</div>
-            <h1 className="display-title">{title}</h1>
-          </div>
+          <div className="topbar-compact" aria-hidden={!condensed}>{title}</div>
           <div className="topbar-actions">
             {actions}
             <SyncIndicator />
@@ -204,7 +204,14 @@ export function Page({ label, title, actions, children, className }: PageProps) 
           </div>
         </div>
       </header>
-      <main className={`page panel on${className ? ` ${className}` : ''}`}>{children}</main>
+      <main className={`page panel on${className ? ` ${className}` : ''}`}>
+        <div className="page-head">
+          <div className="micro">{label}</div>
+          <h1 className="display-title">{title}</h1>
+          <div ref={sentinel} className="top-sentinel" aria-hidden="true" />
+        </div>
+        {children}
+      </main>
     </>
   );
 }
@@ -213,7 +220,7 @@ export function Page({ label, title, actions, children, className }: PageProps) 
 function SyncIndicator() {
   const { mode, store } = useSession();
   const { status, lastSync } = useStoreState();
-  if (mode === 'demo') return <span className="pill accent demo-pill">Demo data</span>;
+  if (mode === 'demo') return <span className="pill demo-pill">Demo data</span>;
   const label =
     status === 'synced' ? `Synced${lastSync ? ` · ${new Date(lastSync).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
       : status === 'syncing' ? 'Syncing…' : 'Offline · changes may not be saved';
