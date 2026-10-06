@@ -27,7 +27,6 @@ import com.personal.budget.ui.components.BudgetCard
 import com.personal.budget.ui.components.BudgetProgress
 import com.personal.budget.ui.components.ButtonKind
 import com.personal.budget.ui.components.GhostIconButton
-import com.personal.budget.ui.components.Hairline
 import com.personal.budget.ui.components.LocalToast
 import com.personal.budget.ui.components.Lucide
 import com.personal.budget.ui.components.MicroLabel
@@ -53,8 +52,9 @@ fun CategoryDetail(ui: MonthUi, categoryId: String, vm: MonthViewModel, main: Ma
     val overrideOpen by vm.overrideOpen.collectAsStateWithLifecycle()
     val toast = LocalToast.current
     val txns = ui.transactions.filter { it.categoryId == categoryId }
+    val delete = com.personal.budget.ui.screens.home.rememberTxnDeleter(main)
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (showHeader) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -68,22 +68,24 @@ fun CategoryDetail(ui: MonthUi, categoryId: String, vm: MonthViewModel, main: Ma
                 GhostIconButton(Lucide.X, "Close detail", onClick = { vm.selectCategory(null) })
             }
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Pill(kindLabel(category.kind))
-                Spacer(Modifier.width(6.dp))
-                Pill(if (category.tracking == Tracking.LEDGER) "Ledger" else "Manual", icon = if (category.tracking == Tracking.LEDGER) Lucide.List else Lucide.Pencil)
-                if (category.matchMultiplier != 1.0 && category.kind == CategoryKind.SAVINGS) {
-                    Spacer(Modifier.width(6.dp))
-                    Pill("×${Money.formatInput(category.matchMultiplier)} match", accent = true)
-                }
-            }
+            // One quiet meta line instead of a row of badges.
+            Text(
+                listOfNotNull(
+                    kindLabel(category.kind),
+                    if (category.tracking == Tracking.LEDGER) "Ledger" else "Manual",
+                    if (category.matchMultiplier != 1.0 && category.kind == CategoryKind.SAVINGS) "×${Money.formatInput(category.matchMultiplier)} match" else null,
+                ).joinToString(" · "),
+                style = Budget.type.secondary,
+                color = c.ink3,
+            )
         }
 
         // Big numbers ------------------------------------------------------------------------------
         Column {
             MicroLabel("Actual")
+            Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.Bottom) {
-                AnimatedMoney(line.actual, style = Budget.type.hero, color = c.ink, blank = "—")
+                AnimatedMoney(line.actual, style = if (showHeader) Budget.type.heroSmall else Budget.type.hero, color = c.ink, blank = "—")
                 if (line.overridden) {
                     Spacer(Modifier.width(8.dp))
                     Pill("manual", modifier = Modifier.padding(bottom = 8.dp))
@@ -93,7 +95,7 @@ fun CategoryDetail(ui: MonthUi, categoryId: String, vm: MonthViewModel, main: Ma
                 Text("of ${Money.format(line.expected)} expected · ", style = Budget.type.secondary, color = c.ink2)
                 Text(Money.formatSigned(line.difference), style = Budget.type.secondary, color = diffColor(category.kind, line.difference, c))
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(14.dp))
             BudgetProgress(
                 line.actual ?: 0.0,
                 line.expected,
@@ -150,18 +152,18 @@ fun CategoryDetail(ui: MonthUi, categoryId: String, vm: MonthViewModel, main: Ma
                         toast.show("Back to the ledger sum")
                     }, kind = ButtonKind.Ghost, icon = Lucide.RotateCcw)
                 } else if (!overrideOpen) {
-                    Text("Actual follows the transactions below.", style = Budget.type.small, color = c.ink3, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
                     BudgetButton("Override", { vm.setOverrideOpen(true) }, kind = ButtonKind.Ghost, icon = Lucide.Pencil)
                 } else {
-                    Text("Type an amount to override the ledger sum.", style = Budget.type.small, color = c.ink3, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
                     BudgetButton("Cancel", { vm.setOverrideOpen(false) }, kind = ButtonKind.Ghost)
                 }
             }
         }
 
         // Transactions ---------------------------------------------------------------------------
-        BudgetCard(padding = PaddingValues(vertical = 6.dp)) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        BudgetCard(padding = PaddingValues(vertical = 8.dp, horizontal = 4.dp)) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 MicroLabel("Transactions · ${txns.size}", Modifier.weight(1f))
                 MicroLabel(Money.format(line.ledgerSum))
             }
@@ -170,19 +172,19 @@ fun CategoryDetail(ui: MonthUi, categoryId: String, vm: MonthViewModel, main: Ma
                     if (category.tracking == Tracking.LEDGER) "No transactions yet." else "Manual category: transactions are optional.",
                     style = Budget.type.secondary,
                     color = c.ink3,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
             }
             AnimatedList(txns, key = { it.id }) { t ->
-                TxnRow(t, category, book, onClick = { main.openEdit(t) }, showCategory = false)
+                TxnRow(t, category, book, onClick = { main.openEdit(t) }, showCategory = false, onDelete = { delete(t) })
             }
-            Hairline()
+            Spacer(Modifier.height(4.dp))
             BudgetButton(
                 "Add to ${category.name}",
                 { main.openAdd(categoryId = categoryId, month = ui.key) },
-                kind = ButtonKind.Ghost,
+                kind = ButtonKind.Secondary,
                 icon = Lucide.Plus,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
     }

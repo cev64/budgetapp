@@ -36,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onPlaced
@@ -48,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.personal.budget.domain.usecase.Money
 import com.personal.budget.ui.theme.Budget
@@ -55,8 +55,8 @@ import com.personal.budget.ui.theme.LocalReduceMotion
 import com.personal.budget.ui.theme.Motion
 
 /**
- * A number that rolls to its new value in the direction of travel and bumps (scale 1.12 on the
- * spring curve) when it changes. Nothing animates on first composition or with reduced motion.
+ * A number that rolls to its new value in the direction of travel (380 ms) with a small spring
+ * bump (scale 1.04) when it changes. Nothing animates on first composition or with reduced motion.
  */
 @Composable
 fun AnimatedMoney(
@@ -96,8 +96,8 @@ fun RollingText(
             return@LaunchedEffect
         }
         scale.snapTo(1f)
-        scale.animateTo(1.12f, tween(180, easing = Motion.Spring))
-        scale.animateTo(1f, tween(270, easing = Motion.Spring))
+        scale.animateTo(1.04f, tween(160, easing = Motion.Spring))
+        scale.animateTo(1f, tween(220, easing = Motion.Spring))
     }
     AnimatedContent(
         targetState = text,
@@ -107,8 +107,8 @@ fun RollingText(
         },
         transitionSpec = {
             val dir = if (up) 1 else -1
-            (slideInVertically(tween(500, easing = Motion.Ease)) { h -> (h * .55f).toInt() * dir } + fadeIn(tween(500, easing = Motion.Ease)))
-                .togetherWith(slideOutVertically(tween(380, easing = Motion.Ease)) { h -> -(h * .55f).toInt() * dir } + fadeOut(tween(380, easing = Motion.Ease)))
+            (slideInVertically(tween(Motion.NUMBER_ROLL, easing = Motion.Ease)) { h -> (h * .55f).toInt() * dir } + fadeIn(tween(Motion.NUMBER_ROLL, easing = Motion.Ease)))
+                .togetherWith(slideOutVertically(tween(Motion.NUMBER_ROLL, easing = Motion.Ease)) { h -> -(h * .55f).toInt() * dir } + fadeOut(tween(260, easing = Motion.Ease)))
                 .using(SizeTransform(clip = false))
         },
         label = "roll",
@@ -144,7 +144,7 @@ fun BudgetProgress(
     val mainAnim by animateFloatAsState(main, if (reduce) tween(0) else tween(Motion.PROGRESS, easing = Motion.Ease), label = "progMain")
     val tailAnim by animateFloatAsState(tail, if (reduce) tween(0) else tween(Motion.PROGRESS, easing = Motion.Ease), label = "progTail")
     val shape = RoundedCornerShape(99.dp)
-    BoxWithConstraints(modifier.fillMaxWidth().height(height).clip(shape).background(c.surface2)) {
+    BoxWithConstraints(modifier.fillMaxWidth().height(height).clip(shape).background(c.fill2)) {
         val w = maxWidth
         Box(Modifier.fillMaxHeight().width(w * mainAnim).clip(shape).background(color))
         if (tailAnim > 0f) {
@@ -159,7 +159,7 @@ fun StackedBar(segments: List<Pair<Float, Color>>, modifier: Modifier = Modifier
     val c = Budget.colors
     val reduce = LocalReduceMotion.current
     val shape = RoundedCornerShape(99.dp)
-    BoxWithConstraints(modifier.fillMaxWidth().height(height).clip(shape).background(c.surface2)) {
+    BoxWithConstraints(modifier.fillMaxWidth().height(height).clip(shape).background(c.fill2)) {
         val w = maxWidth
         var start = 0f
         segments.forEach { (share, color) ->
@@ -173,8 +173,9 @@ fun StackedBar(segments: List<Pair<Float, Color>>, modifier: Modifier = Modifier
 }
 
 /**
- * Segmented control with one white pill that glides to the selection (450 ms ease). The
- * indicator is placed without animation first, so nothing slides in on first show.
+ * Segmented control (FLUID_GLASS v2 §6): pill track in `fill` with 3dp padding; the selection is a
+ * raised `thumb` (white in light) that slides on the spring-soft curve (350 ms). The thumb is placed
+ * without animation first, so nothing slides in on first show.
  */
 @Composable
 fun <T> SegmentedControl(
@@ -185,6 +186,7 @@ fun <T> SegmentedControl(
     fill: Boolean = false,
     /** Reports the selected segment's x and width within this control, e.g. to scroll it into view. */
     onSelectedPlaced: ((x: Dp, width: Dp) -> Unit)? = null,
+    itemPadding: Dp = 14.dp,
 ) {
     val c = Budget.colors
     val density = LocalDensity.current
@@ -193,8 +195,8 @@ fun <T> SegmentedControl(
     var ready by remember { mutableStateOf(false) }
     val selIndex = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
     val target = positions[selIndex]
-    val x by animateDpAsState(target?.first ?: 0.dp, if (ready && !reduce) tween(Motion.GLIDE, easing = Motion.Ease) else tween(0), label = "segX")
-    val w by animateDpAsState(target?.second ?: 0.dp, if (ready && !reduce) tween(Motion.GLIDE, easing = Motion.Ease) else tween(0), label = "segW")
+    val x by animateDpAsState(target?.first ?: 0.dp, if (ready && !reduce) tween(Motion.THUMB, easing = Motion.SpringSoft) else tween(0), label = "segX")
+    val w by animateDpAsState(target?.second ?: 0.dp, if (ready && !reduce) tween(Motion.THUMB, easing = Motion.SpringSoft) else tween(0), label = "segW")
     LaunchedEffect(target != null) {
         if (target != null) {
             kotlinx.coroutines.delay(32)
@@ -204,40 +206,41 @@ fun <T> SegmentedControl(
     if (onSelectedPlaced != null) {
         LaunchedEffect(target) { target?.let { (tx, tw) -> onSelectedPlaced(tx + 3.dp, tw) } }
     }
-    val shape = RoundedCornerShape(10.dp)
-    Box(modifier.clip(shape).background(c.surface2).padding(3.dp)) {
+    val shape = RoundedCornerShape(99.dp)
+    Box(modifier.clip(shape).background(c.fill).padding(3.dp)) {
         if (target != null) {
             Box(Modifier.matchParentSize()) {
-            Box(
-                Modifier
-                    .offset(x = x)
-                    .width(w)
-                    .fillMaxHeight()
-                    .shadow(if (c.isDark) 0.dp else 1.5.dp, RoundedCornerShape(8.dp), ambientColor = Color(16, 24, 40).copy(alpha = .12f), spotColor = Color(16, 24, 40).copy(alpha = .12f))
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (c.isDark) c.line2 else Color.White),
-            )
+                Box(
+                    Modifier
+                        .offset { IntOffset(x.roundToPx(), 0) }
+                        .width(w)
+                        .fillMaxHeight()
+                        .softShadow(shape, c.shadow.copy(alpha = if (c.isDark) .4f else .12f), 12.dp, 4.dp, (-2).dp)
+                        .softShadow(shape, c.shadow.copy(alpha = if (c.isDark) .3f else .08f), 2.dp, 1.dp)
+                        .clip(shape)
+                        .background(c.thumb),
+                )
             }
         }
         Row(if (fill) Modifier.fillMaxWidth() else Modifier) {
             options.forEachIndexed { i, (value, label) ->
                 val interaction = remember { MutableInteractionSource() }
                 val isSel = i == selIndex
-                val color by androidx.compose.animation.animateColorAsState(if (isSel) c.ink else c.ink2, tween(250, easing = Motion.Ease), label = "segInk")
+                val color by androidx.compose.animation.animateColorAsState(if (isSel) c.ink else c.ink2, tween(Motion.HOVER, easing = Motion.Ease), label = "segInk")
                 Box(
                     modifier = (if (fill) Modifier.weight(1f) else Modifier)
                         .onPlaced { coords ->
                             with(density) { positions[i] = coords.positionInParent().x.toDp() to coords.size.width.toDp() }
                         }
                         .pressScale(interaction, .96f)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(shape)
                         .clickable(interactionSource = interaction, indication = null, role = Role.Tab) { onSelect(value) }
                         .semantics { this.selected = isSel }
-                        .heightIn(min = 44.dp)
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                        .heightIn(min = 40.dp)
+                        .padding(horizontal = itemPadding, vertical = 8.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(label, style = Budget.type.button, color = color, maxLines = 1)
+                    Text(label, style = Budget.type.segment, color = color, maxLines = 1)
                 }
             }
         }

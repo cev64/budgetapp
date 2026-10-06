@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router';
 import { ArrowLeft, Plus } from 'lucide-react';
-import { useActions, useData, useSheets } from '../app/session';
+import { useActions, useData } from '../app/session';
 import { newId } from '../data/actions';
 import { Num } from '../ui/Num';
 import { MoneyField, Progress } from '../ui/controls';
@@ -10,16 +10,16 @@ import { CategoryDot, Diff, Empty, OverBudget, TrackingIcon, useMoney } from '..
 import { toast } from '../ui/Toast';
 import { haptic } from '../ui/motion';
 import { compareTransactionsDesc } from './txSort';
+import { TxRow } from './TxRow';
 import { KIND_LABEL } from '../domain/calc';
 import { parseAmount, savedMessage } from '../domain/format';
-import { shortDate, todayIso, ymKey, ymLabel } from '../domain/dates';
+import { todayIso, ymKey, ymLabel } from '../domain/dates';
 import type { CategoryKind, YM } from '../domain/types';
 
 /** Category detail: big actual vs expected, editable expected, actual / override, and the ledger. */
 export function CategoryDetail({ ym, categoryId, onBack }: { ym: YM; categoryId: string; onBack?: () => void }) {
   const { calc } = useData();
   const actions = useActions();
-  const { editTransaction } = useSheets();
   const money = useMoney();
   const [overriding, setOverriding] = useState(false);
 
@@ -53,7 +53,7 @@ export function CategoryDetail({ ym, categoryId, onBack }: { ym: YM; categoryId:
       <div className="detail-big">
         <div className="detail-actual">
           <Num value={actual ?? 0} format={money} />
-          {override && <span className="pill sm manual-pill">manual</span>}
+          {override && <span className="manual-pill">manual</span>}
         </div>
         <div className="muted">
           of {money(expected)} expected · <Diff kind={category.kind} value={line?.difference ?? (actual ?? 0) - expected} />
@@ -115,13 +115,7 @@ export function CategoryDetail({ ym, categoryId, onBack }: { ym: YM; categoryId:
           <Empty title="No transactions yet" />
         ) : (
           <FlipList className="rows" scope={`${ymKey(ym)}:${categoryId}`} signature={txs.map((t) => t.id).join()}>
-            {txs.map((t) => (
-              <button key={t.id} data-k={t.id} type="button" className="row tx-row" onClick={() => editTransaction(t)}>
-                <span className="tx-date muted">{t.date ? shortDate(t.date) : '—'}</span>
-                <span className="tx-main"><span className="tx-item ellipsis">{t.item || <span className="muted">No description</span>}</span></span>
-                <span className={`tx-amount${t.amount < 0 ? ' tone-good' : ''}`}>{money(t.amount)}</span>
-              </button>
-            ))}
+            {txs.map((t) => <TxRow key={t.id} t={t} showCategory={false} />)}
           </FlipList>
         )}
       </div>

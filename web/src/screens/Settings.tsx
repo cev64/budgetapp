@@ -227,9 +227,6 @@ function CategorySheet({ category, onClose }: { category: Category | null; onClo
             <div className="field-label">Tracking</div>
             <Seg<Tracking> className="fill" label="Tracking" value={draft.tracking} onChange={(tracking) => set({ tracking })}
               options={[{ value: 'ledger', label: 'Ledger' }, { value: 'manual', label: 'Manual' }]} />
-            <div className="field-hint">
-              {draft.tracking === 'ledger' ? 'Actual = sum of the transactions (an override can be typed in).' : 'Actual is typed in each month.'}
-            </div>
           </div>
           {draft.kind === 'savings' && (
             <Field label="Match multiplier" hint="2 for a 401k with a 100% employer match: the match counts as saved.">

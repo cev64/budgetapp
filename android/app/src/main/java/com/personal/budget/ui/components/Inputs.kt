@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,12 +37,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -61,7 +62,7 @@ import com.personal.budget.ui.theme.LocalReduceMotion
 import com.personal.budget.ui.theme.Motion
 import com.personal.budget.ui.theme.Radius
 
-/** Text input: card fill, line-2 border, 8dp radius; the border turns accent on focus. */
+/** Text input (v2): quiet `fill`, no border at rest, 12dp radius; focus = 2dp ring, 2dp outside. */
 @Composable
 fun BudgetTextField(
     value: String,
@@ -85,7 +86,7 @@ fun BudgetTextField(
 ) {
     val c = Budget.colors
     var focused by remember { mutableStateOf(false) }
-    val border by animateColorAsState(if (focused) c.focusRing else c.controlBorder, tween(Motion.HOVER, easing = Motion.Ease), label = "fieldBorder")
+    val ring by animateColorAsState(if (focused) c.focusRing else Color.Transparent, tween(Motion.HOVER, easing = Motion.Ease), label = "fieldRing")
     val focusManager = LocalFocusManager.current
     Column(modifier) {
         if (label != null) {
@@ -116,10 +117,21 @@ fun BudgetTextField(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
+                        .drawBehind {
+                            if (ring.alpha > 0f) {
+                                val o = 3.dp.toPx()
+                                drawRoundRect(
+                                    ring,
+                                    topLeft = androidx.compose.ui.geometry.Offset(-o, -o),
+                                    size = androidx.compose.ui.geometry.Size(size.width + 2 * o, size.height + 2 * o),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(Radius.control.toPx() + o),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()),
+                                )
+                            }
+                        }
                         .clip(RoundedCornerShape(Radius.control))
-                        .background(if (enabled) c.card else c.surface)
-                        .border(if (focused) 2.dp else 1.dp, border, RoundedCornerShape(Radius.control))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .background(if (enabled) c.fill else c.fill.copy(alpha = c.fill.alpha / 2))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                 ) {
                     if (leading != null) {
@@ -185,7 +197,10 @@ fun MoneyField(
     )
 }
 
-/** Selectable tile ("pick"): accent-soft fill + accent border when on. */
+/**
+ * Chip (v2 §6): pill, quiet `fill`, ink-2. Selected = raised `thumb` with its soft shadow, ink, 600.
+ * Category chips carry their palette symbol ([mark]); colour is never the only signal.
+ */
 @Composable
 fun Pick(
     text: String,
@@ -195,34 +210,35 @@ fun Pick(
     icon: ImageVector? = null,
     dotColor: Color? = null,
     mark: com.personal.budget.ui.theme.PaletteEntry? = null,
-    dimmed: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") dimmed: Boolean = false,
 ) {
     val c = Budget.colors
-    val bg by animateColorAsState(if (selected) c.accentSoft else c.surface, tween(250, easing = Motion.Ease), label = "pickBg")
-    val border by animateColorAsState(if (selected) c.accent else Color.Transparent, tween(250, easing = Motion.Ease), label = "pickBorder")
-    val ink by animateColorAsState(if (selected) c.accentInk else c.ink, tween(250, easing = Motion.Ease), label = "pickInk")
+    val shape = RoundedCornerShape(Radius.pill)
+    val bg by animateColorAsState(if (selected) c.thumb else c.fill, tween(Motion.HOVER, easing = Motion.Ease), label = "pickBg")
+    val ink by animateColorAsState(if (selected) c.ink else c.ink2, tween(Motion.HOVER, easing = Motion.Ease), label = "pickInk")
+    val lift by androidx.compose.animation.core.animateFloatAsState(if (selected) 1f else 0f, tween(Motion.HOVER, easing = Motion.Ease), label = "pickLift")
     Row(
         modifier
-            .graphicsLayer { alpha = if (dimmed && !selected) .5f else 1f }
-            .tappable(shape = RoundedCornerShape(Radius.pick), pressedFill = c.surface2, onClick = onClick)
-            .background(bg, RoundedCornerShape(Radius.pick))
-            .border(1.5.dp, border, RoundedCornerShape(Radius.pick))
-            .heightIn(min = 44.dp)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .softShadow(shape, c.shadow.copy(alpha = (if (c.isDark) .4f else .12f) * lift), 12.dp, 4.dp, (-2).dp)
+            .tappable(shape = shape, pressedFill = c.fill2, onClick = onClick)
+            .background(bg, shape)
+            .semantics { this.selected = selected }
+            .heightIn(min = 40.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (mark != null) {
-            CategoryMark(mark)
+            CategoryMark(mark, size = 13.dp)
             Spacer(Modifier.size(8.dp))
         } else if (dotColor != null) {
             Dot(dotColor)
-            Spacer(Modifier.size(6.dp))
+            Spacer(Modifier.size(7.dp))
         }
         if (icon != null) {
-            Icon(icon, null, tint = ink, modifier = Modifier.size(14.dp))
+            Icon(icon, null, tint = ink, modifier = Modifier.size(15.dp))
             Spacer(Modifier.size(6.dp))
         }
-        Text(text, style = Budget.type.body, color = ink, maxLines = 1)
+        Text(text, style = if (selected) Budget.type.segment.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) else Budget.type.segment, color = ink, maxLines = 1)
     }
 }
 
@@ -234,8 +250,8 @@ fun <T> PickRow(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Un
 }
 
 /**
- * Modal sheet dialog (FLUID_GLASS §7.4): 18dp radius, springs in (translateY 14 → 0, scale
- * .96 → 1). Max width 420dp (wider when [wide]).
+ * Modal dialog on strong glass (FLUID_GLASS v2): 28dp radius, large soft shadow, springs in
+ * (translateY 14 → 0, scale .96 → 1, 350 ms). Max width 420dp (wider when [wide]).
  */
 @Composable
 fun BudgetDialog(
@@ -250,7 +266,7 @@ fun BudgetDialog(
     val reduce = LocalReduceMotion.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val appear = remember { Animatable(if (reduce) 1f else 0f) }
-        LaunchedEffect(Unit) { appear.animateTo(1f, tween(Motion.GLIDE, easing = Motion.Spring)) }
+        LaunchedEffect(Unit) { appear.animateTo(1f, tween(Motion.SHEET_IN, easing = Motion.Spring)) }
         Box(Modifier.fillMaxWidth().imePadding().padding(20.dp), contentAlignment = Alignment.Center) {
             Column(
                 modifier
@@ -263,9 +279,7 @@ fun BudgetDialog(
                         scaleX = .96f + .04f * p
                         scaleY = .96f + .04f * p
                     }
-                    .shadow(24.dp, RoundedCornerShape(Radius.sheet), ambientColor = c.shadow.copy(alpha = .22f), spotColor = c.shadow.copy(alpha = .22f))
-                    .clip(RoundedCornerShape(Radius.sheet))
-                    .background(if (c.isDark) c.card else Color.White.copy(alpha = .96f))
+                    .glass(RoundedCornerShape(Radius.sheet), strong = true, largeShadow = true)
                     .padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 20.dp),
             ) {
                 Text(title, style = Budget.type.title, color = c.ink)

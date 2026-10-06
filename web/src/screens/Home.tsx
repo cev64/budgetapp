@@ -2,14 +2,15 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { CalendarPlus, Receipt } from 'lucide-react';
 import { Page } from '../app/Shell';
-import { useActions, useData, useSheets } from '../app/session';
+import { useActions, useData } from '../app/session';
 import { Num } from '../ui/Num';
 import { Progress } from '../ui/controls';
 import { FlipList } from '../ui/FlipList';
 import { CardHead, CategoryDot, Empty, OverBudget, useMoney, type MoneyFormat } from '../ui/bits';
+import { TxRow } from './TxRow';
 import { toast } from '../ui/Toast';
 import { computeNetWorth } from '../domain/networth';
-import { currentYm, monthName, shortDate, ymKey, ymLabel } from '../domain/dates';
+import { currentYm, monthName, ymKey, ymLabel } from '../domain/dates';
 import { suggestedMonth } from '../domain/newMonth';
 import { compareTransactionsDesc } from './txSort';
 import { useLayoutMode } from '../ui/hooks';
@@ -22,7 +23,6 @@ import type { MonthSummary } from '../domain/calc';
 export function HomeScreen() {
   const { ds, calc } = useData();
   const actions = useActions();
-  const { editTransaction } = useSheets();
   const money = useMoney();
   const navigate = useNavigate();
 
@@ -61,21 +61,7 @@ export function HomeScreen() {
         <Empty title="No transactions yet" icon={<Receipt size={24} strokeWidth={1.5} />}>Press Add (or N) to log one.</Empty>
       ) : (
         <FlipList className="rows" signature={recent.map((t) => t.id).join()}>
-          {recent.map((t) => {
-            const cat = calc.categoryById.get(t.category_id);
-            return (
-              <button key={t.id} data-k={t.id} type="button" className="row tx-row" onClick={() => editTransaction(t)}>
-                <span className="tx-main">
-                  <span className="tx-item ellipsis">{t.item || <span className="muted">No description</span>}</span>
-                  <span className="tx-meta">
-                    {cat && <span className="pill sm cat-pill"><CategoryDot category={cat} />{cat.name}</span>}
-                    <span className="muted">{t.date ? shortDate(t.date) : ymLabel(t)}</span>
-                  </span>
-                </span>
-                <span className={`tx-amount${t.amount < 0 ? ' tone-good' : ''}`}>{money(t.amount)}</span>
-              </button>
-            );
-          })}
+          {recent.map((t) => <TxRow key={t.id} t={t} />)}
         </FlipList>
       )}
     </section>
@@ -95,12 +81,12 @@ export function HomeScreen() {
             return (
               <Link key={l.category.id} to={`/month/${ymKey(summary)}/c/${l.category.id}`} className="row budget-row">
                 <div className="budget-line">
-                  <span className="budget-name ellipsis"><CategoryDot category={l.category} />{l.category.name}</span>
-                  <span className="budget-of muted">{money(spent)} of {money(l.expected)}</span>
+                  <span className="budget-name"><CategoryDot category={l.category} /><span className="ellipsis">{l.category.name}</span></span>
                   <span className={`budget-left ${left < 0 ? 'tone-bad' : 'muted'}`}>
                     {left < 0 ? `${money(-left)} over` : `${money(left)} left`}
                   </span>
                 </div>
+                <div className="budget-of">{money(spent)} of {money(l.expected)}</div>
                 <Progress actual={spent} expected={l.expected} thin />
                 {left <= -0.005 && <OverBudget name={l.category.name} over={-left} />}
               </Link>
@@ -114,12 +100,12 @@ export function HomeScreen() {
     <Page label="Home" title={title}>
       {showStart && (
         <div className="banner card">
-          <CalendarPlus size={20} strokeWidth={1.75} className="banner-icon" />
+          <span className="banner-icon"><CalendarPlus size={20} strokeWidth={1.75} /></span>
           <div className="banner-text">
             <strong>{ymLabel(today)} hasn't started yet.</strong>
             <span>Budgets copy forward and recurring items are pre-filled.</span>
           </div>
-          <button type="button" className="btn primary" onClick={() => start(today)}>
+          <button type="button" className="btn" onClick={() => start(today)}>
             Start {monthName(today.month)}
           </button>
         </div>

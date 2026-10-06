@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -63,7 +65,7 @@ class ScreenshotTest {
         runBlocking { DemoData.seed(app.container) }
     }
 
-    private fun shoot(name: String, qualifiers: String, theme: ThemeMode, content: @Composable (MainViewModel) -> Unit) {
+    private fun shoot(name: String, qualifiers: String, theme: ThemeMode, before: () -> Unit = {}, content: @Composable (MainViewModel) -> Unit) {
         RuntimeEnvironment.setQualifiers(qualifiers)
         compose.activity.recreate()
         compose.setContent {
@@ -72,6 +74,9 @@ class ScreenshotTest {
         }
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        before()
+        compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         val roots = compose.onAllNodes(isRoot()).fetchSemanticsNodes()
         println("screenshot $name: ${roots.size} root(s)")
@@ -97,17 +102,28 @@ class ScreenshotTest {
     private fun all(name: String, route: String, setup: (MainViewModel) -> Unit = {}) {
         for ((size, q) in listOf("compact" to compact, "fold" to medium)) {
             for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
-                shoot("$name-$size-${theme.key}", q, theme, shell(route, setup))
+                shoot("$name-$size-${theme.key}", q, theme, content = shell(route, setup))
             }
         }
     }
 
     @Test fun home() {
         all("home", Routes.HOME)
-        shoot("home-expanded-light", expanded, ThemeMode.LIGHT, shell(Routes.HOME))
+        shoot("home-expanded-light", expanded, ThemeMode.LIGHT, content = shell(Routes.HOME))
     }
 
     @Test fun month() = all("month", Routes.MONTH) { it.selectMonth(MonthKey.now()) }
+
+    /** Scrolled past the large title: the collapsed glass top bar with the compact title. */
+    @Test fun scrolled() {
+        for ((size, q) in listOf("compact" to compact, "fold" to medium)) {
+            for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+                shoot("month-scrolled-$size-${theme.key}", q, theme, before = {
+                    compose.onRoot().performTouchInput { swipeUp(startY = bottom * .8f, endY = bottom * .35f) }
+                }, content = shell(Routes.MONTH) { it.selectMonth(MonthKey.now()) })
+            }
+        }
+    }
 
     @Test fun monthDetail() {
         val app = ApplicationProvider.getApplicationContext<BudgetApp>()
@@ -140,7 +156,7 @@ class ScreenshotTest {
 
     @Test fun sheet() {
         for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
-            shoot("sheet-prompt-compact-${theme.key}", compact, theme, shell(Routes.SHEET))
+            shoot("sheet-prompt-compact-${theme.key}", compact, theme, content = shell(Routes.SHEET))
         }
         val portrait = "w900dp-h1100dp-xhdpi"
         for ((size, q) in listOf("fold-portrait" to portrait, "landscape" to expanded)) {
@@ -167,11 +183,9 @@ class ScreenshotTest {
         for ((size, q) in listOf("compact" to compact, "fold" to medium)) {
             for (theme in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
                 shoot("add-$size-${theme.key}", q, theme) { vm ->
+                    // The add sheet is drawn inside the app window (GlassSheet), so the shell renders it.
                     androidx.compose.runtime.LaunchedEffect(Unit) { if (vm.addDraft.value == null) vm.openAdd() }
-                    androidx.compose.foundation.layout.Box {
-                        AppShell(vm, navController = rememberNavController(), startRoute = Routes.HOME)
-                        com.personal.budget.ui.screens.add.AddTransactionSheet(vm, inline = true)
-                    }
+                    AppShell(vm, navController = rememberNavController(), startRoute = Routes.HOME)
                 }
             }
         }

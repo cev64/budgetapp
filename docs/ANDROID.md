@@ -28,6 +28,7 @@ The native Android version of Budget: `android/`. Primary device: **Samsung Gala
 | DataStore | 1.2.1 · WorkManager 2.12.0 · Glance 1.2.0 · core-splashscreen 1.2.0 |
 | kotlinx.serialization / coroutines | 1.11.0 / 1.11.0 |
 | OkHttp | 5.5.0 |
+| Haze (`dev.chrisbanes.haze`, backdrop blur for the glass chrome) | 2.0.1 |
 | Tests | JUnit 4.13.2, Robolectric 4.17, MockWebServer 5.5.0, Room testing |
 
 All versions live in `android/gradle/libs.versions.toml`. Bytecode targets Java 17 (CI uses JDK 17;
@@ -50,8 +51,11 @@ android/app/src/main/java/com/personal/budget/
                                   AuthRepository (tokens + refresh), AccountManager (sign-in/out)
   ui/
     theme/                        tokens v2 → Material ColorScheme + BudgetColors, type, motion
-    components/                   Fluid Glass kit: glass bars, cards, segmented control, rolling
-                                  numbers, FLIP list, charts, category symbols, brand mark, toasts
+    components/                   Fluid glass v2 kit: Glass.kt (ambient backdrop, glass / blur
+                                  modifiers, soft shadows), Chrome.kt (collapsing top bar, large
+                                  title, floating pill nav, glass rail, toasts), GlassSheet.kt
+                                  (drag-to-dismiss sheet), Swipe.kt (swipe to delete), segmented
+                                  control, switch, chips, rolling numbers, FLIP list, charts
     navigation/AppShell.kt        window-size-driven shell (bottom bar + FAB / rail), NavHost
     screens/                      home, month (+ category detail), year, networth, settings, auth,
                                   add (transaction sheet)
@@ -177,11 +181,11 @@ values build an app whose sign-in screen says "Backend not configured".
 ./gradlew testDebugUnitTest --tests '*ScreenshotTest*' -Pscreenshots=/abs/output/dir
 ```
 
-Robolectric (native graphics) renders Home, Month (+ category detail), Year, Net worth, Settings, the
-Add sheet, the sign-in screen and the widget (small/medium/large) at 412dp (cover) and 900dp (inner)
+Robolectric (native graphics) renders Home, Month (+ category detail, + scrolled with the collapsed top
+bar), Year, Net worth, Sheet (prompt, summary, month), Settings, the Add sheet, the sign-in screen and the widget (small/medium/large) at 412dp (cover) and 900dp (inner)
 in light and dark, from synthetic data (`docs/fixtures/sample-backup.json` plus generated months and
 net-worth history). Without `-Pscreenshots` those tests are skipped. Component previews for Android
-Studio live in `ui/Previews.kt`.
+Studio live in `ui/Previews.kt`. A selection is kept in `docs/screenshots/android-*.png`.
 
 ## Signing
 
@@ -300,9 +304,9 @@ Layout is chosen from the **window width**, never the device model:
 
 | Width | Layout |
 |---|---|
-| < 600dp (cover screen, split screen) | glass bottom bar (Home · Month · Year · Net worth) + FAB; one pane; two-line table rows instead of narrow columns (text never shrinks) |
-| 600–1023dp (inner screen) | navigation rail with the brand mark and Add at the top; Month = list + category detail side by side; Year = tables + chart; Home = 2 columns; Net worth = history chart beside the accounts list |
-| ≥ 1024dp | rail; Home = 3 columns; wider panes |
+| < 600dp (cover screen, split screen) | floating glass pill nav (Home · Month · Year · Net worth · Sheet, items sized to the window) + round Add beside it; one pane; two-line table rows instead of narrow columns (text never shrinks); Sheet shows the unfold prompt |
+| 600–1023dp (inner screen) | floating glass rail (76dp) with the brand mark and Add at the top; Month = list + category detail side by side; Year = tables + chart; Home = 2 columns; Net worth = history chart beside the accounts list |
+| ≥ 1024dp | wide rail (220dp, lockup + Add button); Home = 3 columns; wider panes |
 
 Window size changes (fold/unfold, rotation, split screen, freeform resize) are handled in place
 (`configChanges`), orientation is never locked, and `resizeableActivity` is on. State that must survive:
@@ -311,10 +315,29 @@ whole add-transaction draft live in activity-scoped ViewModels backed by `SavedS
 unfolding while a category is open simply reveals the list beside it, folding collapses back to the
 detail, and process death restores it too.
 
+## Fluid glass v2 (1.3.0)
+
+Values from `docs/FLUID_GLASS_UI.md` (v2, shared with Bets) live in `ui/theme/Tokens.kt` (glass, fill,
+thumb, blob tokens, radii 20/28/18/12/pill, spring-soft curve and durations).
+
+- **Backdrop:** `AmbientBackdrop` behind the shell (and sign-in): page tone plus three radial blobs that
+  drift over 36/44/52 s, sampled at ~12 fps (draw-only); static with "Remove animations".
+- **Glass:** cards are translucent glass (hairline highlight + two-layer soft shadow). The floating nav,
+  rail, collapsed top bar, Sheet tab bar and Add sheet blur what is behind them with Haze
+  (RenderEffect) on Android 12+; below 12 (and in Robolectric renders) they use the opaque strong-glass
+  tone. Dialogs, menus and chart tooltips use that opaque tone too (their own window / busy content).
+- **Chrome:** each screen starts with a large title (micro label + Barlow 40); the 52dp top bar is
+  transparent until the title scrolls under, then turns to glass with a compact Inter 17 title.
+- **Gestures:** swipe a transaction row left to delete (arms at 96dp / 30 %, haptic tick, Undo toast;
+  accessibility action "Delete"); drag the Add sheet's grabber/header down to dismiss (120dp or
+  0.6 dp/ms); charts scrub with a glass tooltip and a haptic tick per step.
+- **Sheet view:** the grid is one opaque, dense card; only the title and the tab bar are glass.
+- The Glance widget is unchanged.
+
 ## Known limitations
 
-- Glass bars are translucent but not blurred (Compose has no backdrop blur); this is the documented
-  Android fallback.
+- Backdrop blur needs Android 12+; older versions get the opaque glass tone (the spec's fallback).
+  Robolectric screenshots can't render RenderEffect, so they show that fallback too.
 - Live end-to-end sync is covered by `app/src/test/.../data/LiveSyncTest.kt`, which is skipped unless
   `BUDGET_LIVE_EMAIL` / `BUDGET_LIVE_PASSWORD` are set (never commit them). It signs in, pulls, pushes a
   transaction, edits a balance (checks the snapshot RPC moved net worth), pulls a row written over REST,

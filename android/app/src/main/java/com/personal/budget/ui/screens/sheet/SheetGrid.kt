@@ -35,6 +35,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -288,7 +289,15 @@ fun SheetCell(
             }
         }
         if (actions.isNotEmpty()) {
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = if (c.isDark) c.surface else Color.White) {
+            // Menus (v2 §4): radius 18, strong-glass tone (opaque here: a popup window can't blur), soft shadow.
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                containerColor = c.glassStrong.compositeOver(c.page),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(com.personal.budget.ui.theme.Radius.menu),
+                shadowElevation = 12.dp,
+                tonalElevation = 0.dp,
+            ) {
                 if (!menuTitle.isNullOrBlank()) {
                     Text(
                         menuTitle,

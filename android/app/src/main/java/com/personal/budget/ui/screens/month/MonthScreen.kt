@@ -36,11 +36,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,7 +53,9 @@ import com.personal.budget.domain.usecase.CategoryLine
 import com.personal.budget.domain.usecase.Money
 import com.personal.budget.ui.MainViewModel
 import com.personal.budget.ui.appViewModel
+import com.personal.budget.ui.components.LargeTitle
 import com.personal.budget.ui.components.isScrolled
+import com.personal.budget.ui.components.pastTitle
 import com.personal.budget.ui.components.AnimatedList
 import com.personal.budget.ui.components.AnimatedMoney
 import com.personal.budget.ui.components.AppIcon
@@ -66,7 +67,6 @@ import com.personal.budget.ui.components.ButtonKind
 import com.personal.budget.ui.components.EmptyState
 import com.personal.budget.ui.components.GhostIconButton
 import com.personal.budget.ui.components.GlassTopBar
-import com.personal.budget.ui.components.Hairline
 import com.personal.budget.ui.components.LocalToast
 import com.personal.budget.ui.components.Lucide
 import com.personal.budget.ui.components.MicroLabel
@@ -121,26 +121,29 @@ fun MonthScreen(main: MainViewModel) {
 
     val topBar: @Composable (Boolean) -> Unit = { scrolled ->
         GlassTopBar(
-            micro = "Month",
             title = key.label,
             scrolled = scrolled,
-            titleContent = {
-                Text(
-                    key.label.uppercase(),
-                    style = Budget.type.screenTitle,
-                    color = Budget.colors.ink,
-                    maxLines = 1,
-                    modifier = Modifier.tappable(onClick = { picker = true }, label = "Choose month"),
-                )
-            },
             actions = {
-                // Compact puts the month arrows in the content (the 40sp title needs the room).
+                // Compact puts the month arrows beside the large title (they scroll with it).
                 if (!layout.isCompact) {
                     GhostIconButton(Lucide.ChevronLeft, "Previous month", onClick = { main.selectMonth(key.previous()) })
                     GhostIconButton(Lucide.ChevronRight, "Next month", onClick = { main.selectMonth(key.next()) })
                 }
             },
         )
+    }
+    val largeTitle: @Composable () -> Unit = {
+        LargeTitle(
+            "Month",
+            key.label,
+            onTitleClick = { picker = true },
+            titleClickLabel = "Choose month",
+        ) {
+            if (layout.isCompact) {
+                GhostIconButton(Lucide.ChevronLeft, "Previous month", onClick = { main.selectMonth(key.previous()) })
+                GhostIconButton(Lucide.ChevronRight, "Next month", onClick = { main.selectMonth(key.next()) })
+            }
+        }
     }
 
     if (layout.isCompact) {
@@ -159,21 +162,23 @@ fun MonthScreen(main: MainViewModel) {
         ) { catId ->
             if (catId != null) {
                 val detailScroll = rememberScrollState()
+                val catName = s.book.categoriesById[catId]?.name ?: ""
                 ScreenFrame(topBar = {
                     GlassTopBar(
-                        micro = key.label,
-                        title = s.book.categoriesById[catId]?.name ?: "",
-                        scrolled = detailScroll.isScrolled(),
+                        title = catName,
+                        scrolled = detailScroll.pastTitle(),
                         navigation = { GhostIconButton(Lucide.ChevronLeft, "Back to month", onClick = { vm.selectCategory(null) }) },
                     )
                 }) { padding ->
-                    Column(Modifier.fillMaxSize().verticalScroll(detailScroll).padding(padding).padding(horizontal = 16.dp, vertical = 14.dp)) {
+                    Column(Modifier.fillMaxSize().verticalScroll(detailScroll).padding(padding).padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        LargeTitle(key.label, catName)
                         CategoryDetail(ui, catId, vm, main, showHeader = false)
                     }
                 }
             } else {
-                ScreenFrame(topBar = { topBar(listScroll.isScrolled()) }) { padding ->
-                    Column(Modifier.fillMaxSize().verticalScroll(listScroll).padding(padding).padding(horizontal = 16.dp, vertical = 14.dp)) {
+                ScreenFrame(topBar = { topBar(listScroll.pastTitle()) }) { padding ->
+                    Column(Modifier.fillMaxSize().verticalScroll(listScroll).padding(padding).padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        largeTitle()
                         MonthList(ui, tab, vm, main, selectedId = null)
                     }
                 }
@@ -181,7 +186,7 @@ fun MonthScreen(main: MainViewModel) {
         }
     } else {
         val detailScroll = rememberScrollState()
-        ScreenFrame(topBar = { topBar(listScroll.isScrolled() || detailScroll.isScrolled()) }) { padding ->
+        ScreenFrame(topBar = { topBar(listScroll.pastTitle() || detailScroll.isScrolled()) }) { padding ->
             Row(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).padding(horizontal = layout.gutter)) {
                 Column(
                     Modifier
@@ -189,20 +194,22 @@ fun MonthScreen(main: MainViewModel) {
                         .weight(0.6f)
                         .fillMaxHeight()
                         .verticalScroll(listScroll)
-                        .padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
+                        .padding(top = 4.dp, bottom = padding.calculateBottomPadding()),
                 ) {
+                    largeTitle()
                     MonthList(ui, tab, vm, main, selectedId = category?.id)
                 }
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(16.dp))
                 Column(
                     Modifier
                         .weight(0.4f)
                         .fillMaxHeight()
                         .verticalScroll(detailScroll)
-                        .padding(top = 14.dp, bottom = padding.calculateBottomPadding()),
+                        // Lines the detail card up with the list's first card (below the large title).
+                        .padding(top = 74.dp, bottom = padding.calculateBottomPadding()),
                 ) {
                     if (category != null) {
-                        BudgetCard(padding = PaddingValues(16.dp)) {
+                        BudgetCard(padding = PaddingValues(20.dp)) {
                             CategoryDetail(ui, category.id, vm, main, showHeader = true)
                         }
                     } else {
@@ -221,13 +228,12 @@ private fun MonthList(ui: MonthUi, tab: MonthTab, vm: MonthViewModel, main: Main
     val c = Budget.colors
     val view = LocalView.current
     val toast = LocalToast.current
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ui.suggestion?.let { next ->
-            BudgetCard(padding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)) {
+            BudgetCard(padding = PaddingValues(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Ready for ${next.name}?", style = Budget.type.bodyStrong, color = c.ink)
-                        Text("Copies budgets forward and adds subscriptions.", style = Budget.type.small, color = c.ink2)
                     }
                     BudgetButton("Start ${next.name}", {
                         vm.createMonth(next)
@@ -238,12 +244,6 @@ private fun MonthList(ui: MonthUi, tab: MonthTab, vm: MonthViewModel, main: Main
             }
         }
         if (!ui.exists) {
-            if (LocalWindowLayout.current.isCompact) {
-                Row {
-                    GhostIconButton(Lucide.ChevronLeft, "Previous month", onClick = { main.selectMonth(ui.key.previous()) })
-                    GhostIconButton(Lucide.ChevronRight, "Next month", onClick = { main.selectMonth(ui.key.next()) })
-                }
-            }
             BudgetCard {
                 EmptyState(
                     "${ui.key.label} hasn't been started",
@@ -254,14 +254,13 @@ private fun MonthList(ui: MonthUi, tab: MonthTab, vm: MonthViewModel, main: Main
             }
             return@Column
         }
-        // Closed toggle + tabs (stacked on compact so nothing shrinks)
-        val compactLayout = LocalWindowLayout.current.isCompact
+        // Tabs + the Closed toggle on one row (the lock icon carries the state; no caption).
         val closedToggle: @Composable () -> Unit = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(if (ui.summary.closed) Lucide.Lock else Lucide.LockOpen, null, tint = if (ui.summary.closed) c.accentInk else c.ink3, size = 18.dp)
+                AppIcon(if (ui.summary.closed) Lucide.Lock else Lucide.LockOpen, null, tint = if (ui.summary.closed) c.ink else c.ink3, size = 17.dp)
                 Spacer(Modifier.width(6.dp))
-                Text("Closed", style = Budget.type.body, color = c.ink2)
-                Spacer(Modifier.width(8.dp))
+                Text("Closed", style = Budget.type.segment, color = c.ink2)
+                Spacer(Modifier.width(2.dp))
                 BudgetSwitch(ui.summary.closed, onCheckedChange = { on ->
                     Haptics.toggle(view, on)
                     vm.setClosed(ui.key, on)
@@ -274,34 +273,20 @@ private fun MonthList(ui: MonthUi, tab: MonthTab, vm: MonthViewModel, main: Main
                 options = listOf(MonthTab.Budget to "Budget", MonthTab.Transactions to "Transactions"),
                 selected = tab,
                 onSelect = vm::setTab,
-                fill = compactLayout,
                 modifier = m,
             )
         }
-        if (compactLayout) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                GhostIconButton(Lucide.ChevronLeft, "Previous month", onClick = { main.selectMonth(ui.key.previous()) })
-                GhostIconButton(Lucide.ChevronRight, "Next month", onClick = { main.selectMonth(ui.key.next()) })
-                Spacer(Modifier.weight(1f))
-                closedToggle()
-            }
-            tabs(Modifier.fillMaxWidth())
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                tabs(Modifier)
-                Spacer(Modifier.weight(1f))
-                closedToggle()
-            }
-        }
-        if (ui.summary.closed) {
-            Pill("Closed: summary uses actuals", accent = true, icon = Lucide.Lock)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            tabs(Modifier)
+            Spacer(Modifier.weight(1f))
+            closedToggle()
         }
         val reduce = LocalReduceMotion.current
         AnimatedContent(
             targetState = tab,
             transitionSpec = {
                 if (reduce) fadeIn(tween(0)) togetherWith fadeOut(tween(0))
-                else (fadeIn(tween(420, easing = Motion.Ease)) + slideInVertically(tween(420, easing = Motion.Ease)) { 24 }) togetherWith fadeOut(tween(120))
+                else (fadeIn(tween(320, easing = Motion.Ease)) + slideInVertically(tween(320, easing = Motion.Ease)) { 24 }) togetherWith fadeOut(tween(120))
             },
             label = "monthTab",
         ) { t ->
@@ -324,29 +309,27 @@ private fun BudgetTab(ui: MonthUi, vm: MonthViewModel, selectedId: String?) {
         BudgetCard { EmptyState("Set your first category to start this month’s budget.") }
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf(CategoryKind.INCOME, CategoryKind.EXPENSE, CategoryKind.SAVINGS).forEach { kind ->
             val lines = ui.summary.linesOf(kind)
             if (lines.isEmpty()) return@forEach
-            BudgetCard(padding = PaddingValues(top = 12.dp, bottom = 4.dp)) {
+            BudgetCard(padding = PaddingValues(top = 16.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)) {
                 TableHeader(kindLabel(kind), compact, colW)
                 lines.forEach { line ->
                     CategoryRow(line, compact, colW, selected = line.category.id == selectedId, ui = ui, onClick = { vm.selectCategory(line.category.id) })
                 }
-                Hairline()
                 val exp = lines.sumOf { it.expected }
                 val act = lines.sumOf { it.actual ?: 0.0 }
                 NumbersRow("Total", exp, act, kind, compact, colW, bold = true)
             }
         }
         // Summary card: Monthly expenses / Saved (incl. match) / Leftover.
-        BudgetCard(padding = PaddingValues(top = 12.dp, bottom = 4.dp)) {
+        BudgetCard(padding = PaddingValues(top = 16.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)) {
             TableHeader("Summary", compact, colW)
             val e = ui.summary.expected
             val a = ui.summary.actual
             NumbersRow("Monthly expenses", e.expenses, a.expenses, CategoryKind.EXPENSE, compact, colW)
             NumbersRow("Saved (incl. match)", e.saved, a.saved, CategoryKind.SAVINGS, compact, colW)
-            Hairline()
             NumbersRow("Leftover", e.leftover, a.leftover, CategoryKind.INCOME, compact, colW, bold = true, animate = true)
         }
     }
@@ -354,7 +337,7 @@ private fun BudgetTab(ui: MonthUi, vm: MonthViewModel, selectedId: String?) {
 
 @Composable
 private fun TableHeader(title: String, compact: Boolean, colW: Dp) {
-    Row(Modifier.padding(horizontal = 14.dp).padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.padding(horizontal = 12.dp).padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = Budget.type.cardTitle, color = Budget.colors.ink, modifier = Modifier.weight(1f))
         if (compact) {
             MicroLabel("Actual")
@@ -367,16 +350,17 @@ private fun TableHeader(title: String, compact: Boolean, colW: Dp) {
 @Composable
 private fun CategoryRow(line: CategoryLine, compact: Boolean, colW: Dp, selected: Boolean, ui: MonthUi, onClick: () -> Unit) {
     val c = Budget.colors
-    val bg = if (selected) c.accentSoft else Color.Transparent
+    val bg by androidx.compose.animation.animateColorAsState(if (selected) c.fill2 else Color.Transparent, tween(Motion.HOVER, easing = Motion.Ease), label = "rowSel")
     val num = Budget.type.tableNumber
+    val rowShape = RoundedCornerShape(com.personal.budget.ui.theme.Radius.row)
     Column(
         Modifier
             .fillMaxWidth()
-            .tappable(shape = RectangleShape, onClick = onClick, label = "Open ${line.category.name}")
-            .background(bg)
-            .then(if (selected) Modifier.selectedBar(c.accent) else Modifier)
+            .tappable(shape = rowShape, pressedFill = c.fill, onClick = onClick, label = "Open ${line.category.name}")
+            .background(bg, rowShape)
+            .semantics { this.selected = selected }
             .heightIn(min = 48.dp)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
@@ -394,7 +378,7 @@ private fun CategoryRow(line: CategoryLine, compact: Boolean, colW: Dp, selected
                 TrackingIcon(line.category)
                 if (line.overridden) {
                     Spacer(Modifier.width(4.dp))
-                    Pill("manual", fill = c.surface2)
+                    Pill("manual")
                 }
             }
             if (compact) {
@@ -412,7 +396,7 @@ private fun CategoryRow(line: CategoryLine, compact: Boolean, colW: Dp, selected
             }
         }
         if (line.expected > 0 || (line.actual ?: 0.0) > 0) {
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             BudgetProgress(
                 line.actual ?: 0.0,
                 line.expected,
@@ -422,10 +406,6 @@ private fun CategoryRow(line: CategoryLine, compact: Boolean, colW: Dp, selected
             )
         }
     }
-}
-
-private fun Modifier.selectedBar(color: Color) = drawBehind {
-    drawRect(color, size = Size(3.dp.toPx(), size.height))
 }
 
 @Composable
@@ -454,7 +434,7 @@ private fun NumbersRow(label: String, expected: Double, actual: Double, kind: Ca
     val c = Budget.colors
     val num = Budget.type.tableNumber
     val style = if (bold) num.copy(fontWeight = FontWeight.SemiBold) else num
-    Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = if (bold) Budget.type.cardTitle else Budget.type.body, color = c.ink, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (compact) {
@@ -483,13 +463,14 @@ private fun TransactionsTab(ui: MonthUi, vm: MonthViewModel, main: MainViewModel
     val book = ui.snapshot.book
     val usedCats = ui.transactions.map { it.categoryId }.distinct().mapNotNull { book.categoriesById[it] }.sortedBy { it.sortOrder }
     val shown = ui.transactions.filter { filter == null || it.categoryId == filter }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val delete = com.personal.budget.ui.screens.home.rememberTxnDeleter(main)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Pick("All", filter == null, { vm.setFilter(null) })
             usedCats.forEach { cat -> Pick(cat.name, filter == cat.id, { vm.setFilter(if (filter == cat.id) null else cat.id) }, mark = paletteFor(cat, book)) }
         }
-        BudgetCard(padding = PaddingValues(vertical = 6.dp)) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        BudgetCard(padding = PaddingValues(vertical = 8.dp, horizontal = 4.dp)) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 MicroLabel("${shown.size} transaction${if (shown.size == 1) "" else "s"}", Modifier.weight(1f))
                 MicroLabel(Money.format(shown.sumOf { it.amount }))
             }
@@ -497,7 +478,7 @@ private fun TransactionsTab(ui: MonthUi, vm: MonthViewModel, main: MainViewModel
                 EmptyState("No transactions", "Tap + to add one to ${ui.key.name}.")
             }
             AnimatedList(shown, key = { it.id }) { t ->
-                TxnRow(t, book.categoriesById[t.categoryId], book, onClick = { main.openEdit(t) })
+                TxnRow(t, book.categoriesById[t.categoryId], book, onClick = { main.openEdit(t) }, onDelete = { delete(t) })
             }
         }
         BudgetButton("Add transaction", { main.openAdd(categoryId = filter, month = ui.key) }, icon = Lucide.Plus, modifier = Modifier.fillMaxWidth())

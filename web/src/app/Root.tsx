@@ -11,6 +11,7 @@ import { createDemoBackend, demoRequested, setDemoFlag } from '../data/demo';
 import { localClearPrefix } from '../data/safeStorage';
 import { toast, ToastHost } from '../ui/Toast';
 import { AskHost } from '../ui/Sheet';
+import { Backdrop } from '../ui/Backdrop';
 
 interface Props {
   /** Error from an auth redirect (expired confirmation / recovery link). */
@@ -133,6 +134,7 @@ export function Root({ urlAuthError }: Props) {
 
   return (
     <>
+      <Backdrop />
       {body}
       <AskHost />
       <ToastHost />

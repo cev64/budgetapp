@@ -27,10 +27,10 @@ import kotlinx.coroutines.launch
 
 /**
  * The FLIP list from FLUID_GLASS §7.1, for small keyed lists inside cards:
- *  - rows that change place glide from their old position (650 ms ease) and wash green if they
+ *  - rows that change place glide from their old position (300 ms ease) and wash green if they
  *    moved up / red if they moved down (relative order among surviving rows);
- *  - new rows fade + rise 6 px and wash [arrivalTint] (accent by default);
- *  - removed rows linger for 900 ms, sinking 14 px and fading out with a red wash.
+ *  - new rows fade + rise 6 px (300 ms) and wash [arrivalTint] (accent by default);
+ *  - removed rows sink 14 px and fade out (260 ms, FLUID_GLASS v2 §2), then the rest close up.
  * Nothing animates on first composition or with reduced motion.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -160,9 +160,9 @@ private fun RowAnimator(
         if (!exiting) return@LaunchedEffect
         washColor[0] = downTint
         wash.snapTo(.18f)
-        launch { wash.animateTo(0f, tween(900, easing = Motion.Ease)) }
-        launch { dy.animateTo(with(density) { 14.dp.toPx() }, tween(900, easing = Motion.Ease)) }
-        alpha.animateTo(0f, tween(900, easing = Motion.Ease))
+        launch { wash.animateTo(0f, tween(Motion.EXIT, easing = Motion.Ease)) }
+        launch { dy.animateTo(with(density) { 14.dp.toPx() }, tween(Motion.EXIT, easing = Motion.Ease)) }
+        alpha.animateTo(0f, tween(Motion.EXIT, easing = Motion.Ease))
         delay(16)
         onExitDone()
     }

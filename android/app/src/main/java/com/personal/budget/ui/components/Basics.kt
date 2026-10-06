@@ -23,11 +23,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,22 +37,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.personal.budget.ui.theme.Budget
 import com.personal.budget.ui.theme.LocalReduceMotion
 import com.personal.budget.ui.theme.Motion
 import com.personal.budget.ui.theme.Radius
 
-/** Press feedback: scale to .97 over 160 ms on the ease curve (FLUID_GLASS §2). */
+/** Press feedback: scale to .97 (icon buttons .94) over 150 ms on the ease curve (FLUID_GLASS v2 §2, §7). */
 fun Modifier.pressScale(interaction: MutableInteractionSource, scale: Float = Motion.PRESS_SCALE): Modifier = composed {
     val pressed by interaction.collectIsPressedAsState()
     val reduce = LocalReduceMotion.current
@@ -78,35 +79,31 @@ fun Modifier.tappable(
     pressedFill: Color? = null,
     role: Role = Role.Button,
     label: String? = null,
+    scale: Float = Motion.PRESS_SCALE,
     onClick: () -> Unit,
 ): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val fill = pressedFill ?: Budget.colors.surface2
+    val fill = pressedFill ?: Budget.colors.fill2
     val bg by animateColorAsState(if (pressed) fill else Color.Transparent, tween(Motion.HOVER, easing = Motion.Ease), label = "tapFill")
     this
-        .pressScale(interaction)
+        .pressScale(interaction, scale)
         .clip(shape)
         .background(bg)
         .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = role, onClickLabel = label, onClick = onClick)
 }
 
-/** Base content card: card fill, 1px line border, 12dp radius, the faint navy shadow. Never glass. */
+/** Base content card (Fluid glass v2): translucent glass, hairline highlight, soft shadow, 20dp radius. */
 @Composable
 fun BudgetCard(
     modifier: Modifier = Modifier,
-    padding: PaddingValues = PaddingValues(14.dp),
+    padding: PaddingValues = PaddingValues(16.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val c = Budget.colors
-    val shape = RoundedCornerShape(Radius.card)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (!c.isDark) Modifier.shadow(1.dp, shape, ambientColor = c.shadow.copy(alpha = .05f), spotColor = c.shadow.copy(alpha = .08f)) else Modifier)
-            .clip(shape)
-            .background(c.card)
-            .border(1.dp, c.line, shape)
+            .glass(RoundedCornerShape(Radius.card))
             .padding(padding),
         content = content,
     )
@@ -114,13 +111,13 @@ fun BudgetCard(
 
 @Composable
 fun CardHeader(title: String, modifier: Modifier = Modifier, trailing: @Composable RowScope.() -> Unit = {}) {
-    Row(modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = Budget.type.cardTitle, color = Budget.colors.ink, modifier = Modifier.weight(1f))
         trailing()
     }
 }
 
-/** 11/700 uppercase, .08em, ink-3. */
+/** Micro label (v2): 12/500 uppercase, ink-3. */
 @Composable
 fun MicroLabel(text: String, modifier: Modifier = Modifier, color: Color = Budget.colors.ink3) {
     Text(text.uppercase(), style = Budget.type.micro, color = color, modifier = modifier, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -136,7 +133,7 @@ fun Pill(
     icon: ImageVector? = null,
 ) {
     val c = Budget.colors
-    val bg = fill ?: if (accent) c.accentSoft else c.surface2
+    val bg = fill ?: if (accent) c.accentSoft else c.fill
     val fg = ink ?: if (accent) c.accentInk else c.ink2
     Row(
         modifier = modifier.clip(RoundedCornerShape(Radius.pill)).background(bg).padding(horizontal = 9.dp, vertical = 3.dp),
@@ -170,7 +167,7 @@ fun GhostIconButton(
     Box(
         modifier = modifier
             .size(size)
-            .tappable(enabled = enabled, shape = CircleShape, label = contentDescription, onClick = onClick),
+            .tappable(enabled = enabled, shape = CircleShape, label = contentDescription, scale = Motion.ICON_PRESS_SCALE, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription, tint = if (enabled) tint else tint.copy(alpha = .4f), modifier = Modifier.size(iconSize))
@@ -192,11 +189,12 @@ fun BudgetButton(
     val c = Budget.colors
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    // v2: primary = solid accent; everything else is quiet glass fill, no border.
     val (bg, fg, border) = when (kind) {
         ButtonKind.Primary -> Triple(if (pressed) c.accentInk else c.accent, c.onAccent, Color.Transparent)
-        ButtonKind.Secondary -> Triple(if (pressed) c.surface else c.card, c.ink2, c.line2)
-        ButtonKind.Ghost -> Triple(if (pressed) c.surface2 else Color.Transparent, c.ink2, Color.Transparent)
-        ButtonKind.Danger -> Triple(if (pressed) c.bad.copy(alpha = .08f) else c.card, c.bad, c.bad.copy(alpha = .35f))
+        ButtonKind.Secondary -> Triple(if (pressed) c.fill2 else c.fill, c.ink, Color.Transparent)
+        ButtonKind.Ghost -> Triple(if (pressed) c.fill2 else Color.Transparent, c.ink2, Color.Transparent)
+        ButtonKind.Danger -> Triple(if (pressed) c.fill2 else c.fill, c.bad, Color.Transparent)
         ButtonKind.DangerSolid -> Triple(c.bad, if (c.isDark) c.bg else Color.White, Color.Transparent)
     }
     val bgAnim by animateColorAsState(bg, tween(Motion.HOVER, easing = Motion.Ease), label = "btnBg")
@@ -222,31 +220,54 @@ fun BudgetButton(
     }
 }
 
+/**
+ * v2 switch (§6): 48×28 track (`fill-2` off, accent on), 24dp white thumb that slides on the
+ * spring-soft curve and stretches to 28dp while pressed.
+ */
 @Composable
 fun BudgetSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val c = Budget.colors
-    Switch(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        enabled = enabled,
-        modifier = modifier,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = Color.White,
-            checkedTrackColor = c.accent,
-            checkedBorderColor = c.accent,
-            uncheckedThumbColor = Color.White,
-            uncheckedTrackColor = c.line2,
-            uncheckedBorderColor = c.line2,
-        ),
-        thumbContent = null,
-    )
+    val reduce = LocalReduceMotion.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val spec = if (reduce) tween<Float>(0) else tween(Motion.THUMB, easing = Motion.SpringSoft)
+    val pos by animateFloatAsState(if (checked) 1f else 0f, spec, label = "switchPos")
+    val stretch by animateFloatAsState(if (pressed && !reduce) 1f else 0f, tween(Motion.PRESS, easing = Motion.Ease), label = "switchStretch")
+    val track by animateColorAsState(if (checked) c.accent else c.fill2, tween(Motion.HOVER, easing = Motion.Ease), label = "switchTrack")
+    // 48dp tall touch target around the 28dp track.
+    Box(
+        modifier
+            .size(52.dp, 48.dp)
+            .clickable(interactionSource = interaction, indication = null, enabled = enabled, role = Role.Switch) { onCheckedChange(!checked) }
+            .semantics { stateDescription = if (checked) "On" else "Off" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(48.dp, 28.dp)
+                .graphicsLayer { alpha = if (enabled) 1f else .5f }
+                .clip(CircleShape)
+                .background(track),
+        ) {
+            val thumbW = 24.dp + 4.dp * stretch
+            Box(
+                Modifier
+                    .padding(2.dp)
+                    .offset { IntOffset(((48.dp - 4.dp - thumbW) * pos).roundToPx(), 0) }
+                    .size(thumbW, 24.dp)
+                    .softShadow(CircleShape, Color.Black.copy(alpha = .18f), 4.dp, 1.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+            )
+        }
+    }
 }
 
-/** Thin divider in `line`. */
+/** Thin, quiet divider (v2: rarely used; space separates rows). Kept for totals rules. */
 @Composable
 fun Hairline(modifier: Modifier = Modifier, inset: Dp = 0.dp) {
     val c = Budget.colors
-    Box(modifier.fillMaxWidth().padding(start = inset).height(1.dp).background(c.line))
+    Box(modifier.fillMaxWidth().padding(start = inset).height(1.dp).background(c.glassEdge.copy(alpha = if (c.isDark) .08f else .07f)))
 }
 
 /**

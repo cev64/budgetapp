@@ -2,14 +2,15 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown, List, Pencil, Trash2 } from 'lucide-react';
 import { useActions, useData } from '../app/session';
 import { newId } from '../data/actions';
-import { Sheet, ask } from '../ui/Sheet';
+import { Sheet } from '../ui/Sheet';
 import { Field, Switch } from '../ui/controls';
 import { toast } from '../ui/Toast';
 import { haptic } from '../ui/motion';
 import { compareYm, currentYm, todayIso, ymLabel } from '../domain/dates';
-import { formatMoney, parseAmount, amountInputText, savedMessage } from '../domain/format';
+import { parseAmount, amountInputText, savedMessage } from '../domain/format';
 import type { Category, Transaction, YM } from '../domain/types';
 import { CategoryDot } from '../ui/bits';
+import { useDeleteTransaction } from './TxRow';
 
 export interface TxSheetState {
   open: boolean;
@@ -113,17 +114,11 @@ export function TransactionSheet({ state, onClose }: { state: TxSheetState; onCl
     }
   };
 
+  const deleteTransaction = useDeleteTransaction();
   const remove = async () => {
     if (!editing) return;
-    const yes = await ask({
-      title: 'Delete transaction?',
-      body: `${editing.item || 'This transaction'} · ${formatMoney(editing.amount, calc.settings.currency)}`,
-      yes: 'Delete',
-      danger: true,
-    });
-    if (!yes) return;
     onClose();
-    if (await actions.deleteTransaction(editing)) toast('Transaction deleted');
+    await deleteTransaction(editing);
   };
 
   const createCurrent = async () => {

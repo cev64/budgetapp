@@ -1,7 +1,6 @@
 package com.personal.budget.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,13 +39,13 @@ import com.personal.budget.ui.components.Dot
 import com.personal.budget.ui.components.GhostIconButton
 import com.personal.budget.ui.components.Lucide
 import com.personal.budget.ui.components.MicroLabel
+import com.personal.budget.ui.components.softShadow
 import com.personal.budget.ui.components.tappable
 import com.personal.budget.ui.theme.Budget
 import com.personal.budget.ui.theme.BudgetColors
 import com.personal.budget.ui.theme.CategoryAssignment
 import com.personal.budget.ui.theme.CategoryPalette
 import com.personal.budget.ui.theme.PaletteEntry
-import com.personal.budget.ui.theme.Radius
 import kotlin.math.abs
 
 /** Window layout classes (docs/UI_ANATOMY.md): by window width, never by device model. */
@@ -180,31 +179,28 @@ fun MonthPickerDialog(
                     val exists = book.exists(m)
                     val isSel = m == selected
                     val closed = book.month(m)?.closed == true
+                    val tileShape = RoundedCornerShape(16.dp)
                     Column(
                         Modifier
                             .weight(1f)
                             .padding(vertical = 3.dp)
-                            .tappable(shape = RoundedCornerShape(Radius.pick)) { if (exists) onPick(m) else onCreate(m) }
+                            .then(if (isSel) Modifier.softShadow(tileShape, c.shadow.copy(alpha = if (c.isDark) .4f else .12f), 12.dp, 4.dp, (-2).dp) else Modifier)
+                            .tappable(shape = tileShape, label = if (exists) "Open ${m.label}" else "Start ${m.label}") { if (exists) onPick(m) else onCreate(m) }
                             .background(
                                 when {
-                                    isSel -> c.accentSoft
-                                    exists -> c.surface
+                                    isSel -> c.thumb
+                                    exists -> c.fill
                                     else -> Color.Transparent
                                 },
-                                RoundedCornerShape(Radius.pick),
+                                tileShape,
                             )
-                            .border(1.dp, if (isSel) c.accent else if (exists) Color.Transparent else c.line2, RoundedCornerShape(Radius.pick))
                             .padding(vertical = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
                             m.shortName,
-                            style = Budget.type.bodyStrong,
-                            color = when {
-                                isSel -> c.accentInk
-                                exists -> c.ink
-                                else -> c.ink3
-                            },
+                            style = if (isSel) Budget.type.bodyStrong.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) else Budget.type.bodyStrong,
+                            color = if (exists) c.ink else c.ink3,
                         )
                         Spacer(Modifier.height(2.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -229,16 +225,23 @@ fun Tile(
     label: String,
     modifier: Modifier = Modifier,
     wrapLabel: Boolean = false,
+    /** Small trailing visual on the label row (e.g. a sparkline), so the value keeps the full width. */
+    labelTrailing: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    com.personal.budget.ui.components.BudgetCard(modifier, padding = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
+    com.personal.budget.ui.components.BudgetCard(modifier, padding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
         if (wrapLabel) {
             Text(label.uppercase(), style = Budget.type.micro, color = Budget.colors.ink3, maxLines = 2)
             Spacer(Modifier.weight(1f))
+        } else if (labelTrailing != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MicroLabel(label, Modifier.weight(1f))
+                labelTrailing()
+            }
         } else {
             MicroLabel(label)
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         content()
     }
 }

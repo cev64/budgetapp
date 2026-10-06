@@ -47,8 +47,8 @@ private val samplePoints = (0..90).map { i ->
 @Composable
 private fun Kit() {
     val c = Budget.colors
-    Column(Modifier.fillMaxSize().background(c.bg)) {
-        GlassTopBar(micro = "Budget", title = "October 2026", scrolled = false)
+    Column(Modifier.fillMaxSize().background(c.page)) {
+        GlassTopBar(title = "October 2026", scrolled = true)
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             BudgetCard {
                 MicroLabel("Leftover · October")

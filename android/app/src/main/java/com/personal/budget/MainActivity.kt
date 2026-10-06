@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun Root(vm: MainViewModel) {
     val auth by vm.auth.collectAsStateWithLifecycle()
-    Box(Modifier.fillMaxSize().background(Budget.colors.bg)) {
+    Box(Modifier.fillMaxSize().background(Budget.colors.page)) {
         when (auth) {
             AuthState.Loading -> Unit
             AuthState.SignedOut -> AuthScreen()

@@ -1,7 +1,6 @@
 package com.personal.budget.ui.screens.auth
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -140,8 +139,10 @@ fun AuthScreen() {
     val mode = AuthMode.valueOf(modeName)
     val c = Budget.colors
 
+    Box(Modifier.fillMaxSize()) {
+    com.personal.budget.ui.components.AmbientBackdrop()
     Box(
-        Modifier.fillMaxSize().background(c.surface).safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()),
+        Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(Modifier.widthIn(max = 420.dp).fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -228,6 +229,7 @@ fun AuthScreen() {
             Spacer(Modifier.height(14.dp))
             Text("The first sign-in needs the internet. After that, everything works offline.", style = Budget.type.small, color = c.ink3, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
+    }
     }
     discard?.let { n ->
         ConfirmDialog(

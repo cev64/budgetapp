@@ -26,7 +26,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.personal.budget.ui.theme.Radius
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -48,7 +49,8 @@ import com.personal.budget.domain.usecase.Num
 import com.personal.budget.ui.MainViewModel
 import com.personal.budget.ui.appContainer
 import com.personal.budget.ui.appViewModel
-import com.personal.budget.ui.components.isScrolled
+import com.personal.budget.ui.components.LargeTitle
+import com.personal.budget.ui.components.pastTitle
 import com.personal.budget.ui.components.AnimatedList
 import com.personal.budget.ui.components.AppIcon
 import com.personal.budget.ui.components.BudgetButton
@@ -62,7 +64,6 @@ import com.personal.budget.ui.components.ConfirmDialog
 import com.personal.budget.ui.components.Dot
 import com.personal.budget.ui.components.GhostIconButton
 import com.personal.budget.ui.components.GlassTopBar
-import com.personal.budget.ui.components.Hairline
 import com.personal.budget.ui.components.LocalShowSettingsGear
 import com.personal.budget.ui.components.LocalToast
 import com.personal.budget.ui.components.Lucide
@@ -100,15 +101,15 @@ fun SettingsScreen(main: MainViewModel, onBack: () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(LocalShowSettingsGear provides false) {
         ScreenFrame(topBar = {
             GlassTopBar(
-                micro = "Budget",
                 title = "Settings",
-                scrolled = scroll.isScrolled(),
+                scrolled = scroll.pastTitle(),
                 navigation = { GhostIconButton(Lucide.ChevronLeft, "Back", onClick = onBack) },
             )
         }) { padding ->
-            Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding).padding(horizontal = layout.gutter, vertical = 14.dp)) {
+            Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(padding).padding(horizontal = layout.gutter, vertical = 4.dp)) {
+                LargeTitle("Budget", "Settings")
                 if (layout.isCompact) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         AccountCard(main, vm)
                         IncomeCard(s.settings, vm)
                         CategoriesCard(s, vm)
@@ -118,15 +119,15 @@ fun SettingsScreen(main: MainViewModel, onBack: () -> Unit) {
                         AboutCard()
                     }
                 } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             AccountCard(main, vm)
                             IncomeCard(s.settings, vm)
                             AppearanceCard(main)
                             DataCard(vm)
                             AboutCard()
                         }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             CategoriesCard(s, vm)
                             RecurringCard(s, vm)
                         }
@@ -171,9 +172,8 @@ private fun AccountCard(main: MainViewModel, vm: SettingsViewModel) {
     val a = auth as? AuthState.SignedIn
     BudgetCard {
         CardHeader("Account")
-        SettingRow(a?.email?.ifBlank { "Signed in" } ?: "Not signed in", if (a?.sessionValid == false) "Session expired: sign in again to sync" else "Email + password via Supabase")
-        Hairline()
-        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        SettingRow(a?.email?.ifBlank { "Signed in" } ?: "Not signed in", if (a?.sessionValid == false) "Session expired: sign in again to sync" else null)
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             SyncDot(indicator)
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
@@ -187,7 +187,8 @@ private fun AccountCard(main: MainViewModel, vm: SettingsViewModel) {
             }
             BudgetButton("Sync now", { vm.syncNow() }, icon = Lucide.RefreshCw, enabled = vm.config.isConfigured && a?.sessionValid == true)
         }
-        if (pending > 0) Text("$pending change${if (pending == 1) "" else "s"} waiting to upload", style = Budget.type.small, color = c.ink3)
+        // The status line already says "N changes pending" in that state; only add the count otherwise.
+        if (pending > 0 && indicator !is com.personal.budget.ui.components.SyncIndicator.Pending) Text("$pending change${if (pending == 1) "" else "s"} waiting to upload", style = Budget.type.small, color = c.ink3)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (a?.sessionValid == false) BudgetButton("Sign in again", { reauth = true }, kind = ButtonKind.Primary)
@@ -262,8 +263,6 @@ private fun IncomeCard(settings: BudgetSettings, vm: SettingsViewModel) {
             MoneyField(settings.netIncome, { vm.saveSettings(settings.copy(netIncome = it ?: settings.netIncome)) }, label = "Annual net", allowBlank = false, modifier = Modifier.weight(1f), textAlign = TextAlign.Start)
             MoneyField(settings.grossIncome, { vm.saveSettings(settings.copy(grossIncome = it ?: settings.grossIncome)) }, label = "Annual gross", allowBlank = false, modifier = Modifier.weight(1f), textAlign = TextAlign.Start)
         }
-        Spacer(Modifier.height(6.dp))
-        Text("Net and gross are used for the year's “% of net / gross income”.", style = Budget.type.small, color = Budget.colors.ink3)
     }
 }
 
@@ -271,21 +270,21 @@ private fun IncomeCard(settings: BudgetSettings, vm: SettingsViewModel) {
 private fun CategoriesCard(s: BudgetSnapshot, vm: SettingsViewModel) {
     val c = Budget.colors
     val cats = s.book.categories
-    BudgetCard(padding = PaddingValues(top = 14.dp, bottom = 6.dp)) {
-        CardHeader("Categories", Modifier.padding(horizontal = 14.dp)) {
+    BudgetCard(padding = PaddingValues(top = 12.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)) {
+        CardHeader("Categories", Modifier.padding(start = 12.dp, end = 4.dp)) {
             BudgetButton("Add", { vm.edit("category:new") }, kind = ButtonKind.Ghost, icon = Lucide.Plus)
         }
         CategoryKind.entries.forEach { kind ->
             val group = cats.filter { it.kind == kind }
             if (group.isEmpty()) return@forEach
-            MicroLabel(kindLabel(kind), Modifier.padding(start = 14.dp, top = 8.dp, bottom = 2.dp))
+            MicroLabel(kindLabel(kind), Modifier.padding(start = 12.dp, top = 10.dp, bottom = 2.dp))
             AnimatedList(group, key = { it.id }) { cat ->
                 val index = cats.indexOf(cat)
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .tappable(shape = RectangleShape, onClick = { vm.edit("category:${cat.id}") })
-                        .padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                        .tappable(shape = RoundedCornerShape(Radius.row), pressedFill = c.fill, onClick = { vm.edit("category:${cat.id}") })
+                        .padding(start = 12.dp, end = 0.dp, top = 2.dp, bottom = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CategoryMark(paletteFor(cat, s.book), size = 14.dp)
@@ -369,10 +368,7 @@ private fun CategoryDialog(s: BudgetSnapshot, existing: Category?, vm: SettingsV
         if (existing != null) {
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Archived", style = Budget.type.body, color = c.ink)
-                    Text("Hidden from new months; still counts where it has data.", style = Budget.type.small, color = c.ink3)
-                }
+                Text("Archived", style = Budget.type.body, color = c.ink, modifier = Modifier.weight(1f))
                 BudgetSwitch(archived, { archived = it })
             }
             if (hasData) {
@@ -386,22 +382,21 @@ private fun CategoryDialog(s: BudgetSnapshot, existing: Category?, vm: SettingsV
 @Composable
 private fun RecurringCard(s: BudgetSnapshot, vm: SettingsViewModel) {
     val c = Budget.colors
-    BudgetCard(padding = PaddingValues(top = 14.dp, bottom = 6.dp)) {
-        CardHeader("Recurring", Modifier.padding(horizontal = 14.dp)) {
+    BudgetCard(padding = PaddingValues(top = 12.dp, bottom = 6.dp, start = 4.dp, end = 4.dp)) {
+        CardHeader("Recurring", Modifier.padding(start = 12.dp, end = 4.dp)) {
             BudgetButton("Add", { vm.edit("recurring:new") }, kind = ButtonKind.Ghost, icon = Lucide.Plus)
         }
-        Text("Added to each new month as transactions (subscriptions).", style = Budget.type.small, color = c.ink3, modifier = Modifier.padding(horizontal = 14.dp))
-        if (s.recurring.isEmpty()) Text("No recurring items.", style = Budget.type.secondary, color = c.ink3, modifier = Modifier.padding(14.dp))
+        if (s.recurring.isEmpty()) Text("No recurring items.", style = Budget.type.secondary, color = c.ink3, modifier = Modifier.padding(12.dp))
         AnimatedList(s.recurring, key = { it.id }) { r ->
             val cat = s.book.categoriesById[r.categoryId]
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .tappable(shape = RectangleShape, onClick = { vm.edit("recurring:${r.id}") })
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .tappable(shape = RoundedCornerShape(Radius.row), pressedFill = c.fill, onClick = { vm.edit("recurring:${r.id}") })
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AppIcon(Lucide.Repeat, null, tint = if (r.active) c.accentInk else c.ink3, size = 16.dp)
+                AppIcon(Lucide.Repeat, null, tint = if (r.active) c.ink2 else c.ink3, size = 16.dp)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(r.item.ifBlank { "(no item)" }, style = Budget.type.body, color = if (r.active) c.ink else c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -472,7 +467,7 @@ private fun AppearanceCard(main: MainViewModel) {
         SegmentedControl(ThemeMode.entries.map { it to it.label }, p.theme, { main.setTheme(it) }, fill = true, modifier = Modifier.fillMaxWidth())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Spacer(Modifier.height(6.dp))
-            SettingRow("Dynamic colour", "Use wallpaper colours. Off keeps the same look as the web app.") {
+            SettingRow("Dynamic colour") {
                 BudgetSwitch(p.dynamicColor, { main.setDynamicColor(it) })
             }
         }
@@ -501,8 +496,8 @@ private fun DataCard(vm: SettingsViewModel) {
     }
     BudgetCard {
         CardHeader("Data")
-        Text("Backups use the same JSON as the web app. Import merges: nothing is deleted.", style = Budget.type.small, color = c.ink3)
-        Spacer(Modifier.height(10.dp))
+        Text("Import merges; nothing is deleted.", style = Budget.type.small, color = c.ink3)
+        Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BudgetButton("Export backup", { exportLauncher.launch("budget-backup-${java.time.LocalDate.now()}.json") }, icon = Lucide.Download, modifier = Modifier.weight(1f))
             BudgetButton("Import backup", { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, icon = Lucide.Upload, modifier = Modifier.weight(1f))

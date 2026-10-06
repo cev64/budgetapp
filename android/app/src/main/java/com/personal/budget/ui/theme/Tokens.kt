@@ -43,6 +43,27 @@ data class BudgetColors(
     /** Navy-tinted shadow base (rgba(8,32,79,a) light, black dark). */
     val shadow: Color,
     val isDark: Boolean,
+    // Fluid glass v2 (docs/FLUID_GLASS_UI.md §3–4) ------------------------------------------------
+    /** Ambient backdrop base and its three drifting blobs. */
+    val page: Color,
+    val blobA: Color,
+    val blobB: Color,
+    val blobC: Color,
+    /** Cards, tiles, side rail. */
+    val glass: Color,
+    /** Sheets, menus, bottom nav, condensed top bar, tooltip. */
+    val glassStrong: Color,
+    /** Inset top highlight and hairline ring of every glass surface. */
+    val glassHi: Color,
+    val glassEdge: Color,
+    /** Quiet control fill (seg track, chips, ghost buttons, inputs) and its pressed tone. */
+    val fill: Color,
+    val fill2: Color,
+    /** Raised selection (seg thumb, selected chip). */
+    val thumb: Color,
+    /** Alpha of the soft card shadow / large shadow (shadow colour = [shadow]). */
+    val shadowAlpha: Float,
+    val shadowLgAlpha: Float,
 ) {
     val tintUp = Color(21, 128, 61)
     val tintDown = Color(220, 38, 38)
@@ -79,6 +100,19 @@ val LightTokens = BudgetColors(
     controlBorder = Color(0xFF63718A),
     shadow = Color(8, 32, 79),
     isDark = false,
+    page = Color(0xFFF4F6FB),
+    blobA = Color(16, 89, 252).copy(alpha = .07f),
+    blobB = Color(99, 102, 241).copy(alpha = .05f),
+    blobC = Color(56, 189, 248).copy(alpha = .04f),
+    glass = Color.White.copy(alpha = .74f),
+    glassStrong = Color.White.copy(alpha = .86f),
+    glassHi = Color.White.copy(alpha = .55f),
+    glassEdge = Color(8, 32, 79).copy(alpha = .06f),
+    fill = Color(8, 32, 79).copy(alpha = .05f),
+    fill2 = Color(8, 32, 79).copy(alpha = .08f),
+    thumb = Color.White,
+    shadowAlpha = .14f,
+    shadowLgAlpha = .28f,
 )
 
 /** design/tokens.json v2, dark. */
@@ -108,6 +142,19 @@ val DarkTokens = BudgetColors(
     controlBorder = Color(0xFF91A2BF),
     shadow = Color.Black,
     isDark = true,
+    page = Color(0xFF0A1122),
+    blobA = Color(74, 130, 255).copy(alpha = .12f),
+    blobB = Color(99, 102, 241).copy(alpha = .08f),
+    blobC = Color(56, 189, 248).copy(alpha = .05f),
+    glass = Color(20, 32, 56).copy(alpha = .72f),
+    glassStrong = Color(17, 27, 48).copy(alpha = .88f),
+    glassHi = Color.White.copy(alpha = .08f),
+    glassEdge = Color.White.copy(alpha = .06f),
+    fill = Color.White.copy(alpha = .06f),
+    fill2 = Color.White.copy(alpha = .10f),
+    thumb = Color.White.copy(alpha = .14f),
+    shadowAlpha = .6f,
+    shadowLgAlpha = .7f,
 )
 
 enum class CategorySymbol { CIRCLE, SQUARE, TRIANGLE, DIAMOND, PLUS, CROSS, RING, SQUARE_RING, TRIANGLE_RING, DIAMOND_RING }
@@ -148,16 +195,19 @@ val CategoryAssignment = mapOf(
 
 val LocalBudgetColors = staticCompositionLocalOf { LightTokens }
 
-/** Radii from tokens.json. */
+/** Radii (FLUID_GLASS_UI v2 §4): cards 20, sheets 28, menus 18, inputs/buttons 12, pills 999. */
 object Radius {
-    val card = 12.dp
-    val control = 8.dp
-    val pick = 10.dp
-    val seg = 10.dp
-    val menu = 14.dp
-    val sheet = 24.dp
-    val floatingBar = 24.dp
+    val card = 20.dp
+    val control = 12.dp
+    val pick = 999.dp
+    val seg = 999.dp
+    val menu = 18.dp
+    val sheet = 28.dp
+    val floatingBar = 999.dp
+    val rail = 24.dp
     val pill = 999.dp
+    /** Rows inside cards (tappable rows get a soft rounded press / selection fill). */
+    val row = 14.dp
 }
 
 /** Spacing scale 4 / 6 / 8 / 10 / 14 / 18 / 28. */
@@ -171,17 +221,30 @@ object Space {
     val xxl = 28.dp
 }
 
-/** The two curves and durations (tokens.json "motion"). */
+/** The curves and durations (tokens.json "motion", FLUID_GLASS_UI v2 §2). */
 object Motion {
     val Ease = CubicBezierEasing(.22f, 1f, .36f, 1f)
     val Spring = CubicBezierEasing(.34f, 1.4f, .64f, 1f)
+    /** Thumbs and indicators that slide (segmented, nav, switch) and swipe/drag spring-back. */
+    val SpringSoft = CubicBezierEasing(.3f, 1.25f, .5f, 1f)
     const val PRESS_SCALE = .97f
-    const val PRESS = 160
-    const val HOVER = 220
-    const val GLIDE = 450
-    const val APPEAR = 450
-    const val ARRIVE = 500
-    const val REORDER = 650
+    const val ICON_PRESS_SCALE = .94f
+    const val PRESS = 150
+    const val HOVER = 200
+    /** Segmented / nav thumb glide, switch thumb. */
+    const val THUMB = 350
+    const val SHEET_IN = 350
+    const val SHEET_OUT = 220
+    const val NUMBER_ROLL = 380
+    const val SWIPE_BACK = 300
+    const val CHART_DRAW = 700
+    const val BAR_CONDENSE = 200
+    const val GLIDE = 350
+    /** List rows in / out (FLIP). */
+    const val APPEAR = 300
+    const val EXIT = 260
+    const val ARRIVE = 350
+    const val REORDER = 300
     const val TINT = 1400
     const val EXIT_FACTOR = .6f
     const val PROGRESS = 600

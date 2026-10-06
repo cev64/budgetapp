@@ -50,12 +50,18 @@ data class BudgetType(
     ),
     /** title: Inter 600 24/30 −0.48. */
     val title: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = track(-0.48, 24)),
-    /** numbers: Inter 600 32/40 −0.32 (hero totals). */
-    val hero: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 32.sp, lineHeight = 40.sp, letterSpacing = track(-0.32, 32)),
+    /** v2 hero numbers: Inter 600 48/52, −1px tracking (generous space around them). */
+    val hero: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 48.sp, lineHeight = 52.sp, letterSpacing = track(-1.0, 48)),
+    /** Secondary hero (detail panes, sheet amount): Inter 600 36/42, −0.8px. */
+    val heroSmall: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 36.sp, lineHeight = 42.sp, letterSpacing = track(-0.8, 36)),
     /** Tile values: title size with number features. */
     val number: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = track(-0.48, 24)),
-    /** cardTitle: Inter 600 16/24. */
-    val cardTitle: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 24.sp),
+    /** v2 card titles: Inter 600 17/24. */
+    val cardTitle: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp),
+    /** Compact top-bar title: Inter 600 17/22. */
+    val barTitle: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 22.sp),
+    /** Segmented labels and chips: Inter 500 15/20. */
+    val segment: TextStyle = base.copy(fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 20.sp),
     /** body: Inter 400 16/24. */
     val body: TextStyle = base.copy(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
     /** control: Inter 500 16/24 (buttons, selected navigation, emphasised rows). */
@@ -66,12 +72,12 @@ data class BudgetType(
     val secondary: TextStyle = base.copy(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
     /** Short metadata (dates under rows); same size as secondary. */
     val small: TextStyle = base.copy(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-    /** micro: Inter 600 12/16 +0.72, uppercase. */
-    val micro: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = track(0.72, 12)),
+    /** micro (v2): Inter 500 12/16 +0.72, uppercase, ink-3. */
+    val micro: TextStyle = base.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = track(0.72, 12)),
     val button: TextStyle = base.copy(fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp),
     val pill: TextStyle = base.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
     /** Navigation labels (bar/rail). */
-    val nav: TextStyle = base.copy(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+    val nav: TextStyle = base.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp),
 )
 
 val LocalBudgetType = staticCompositionLocalOf { BudgetType() }

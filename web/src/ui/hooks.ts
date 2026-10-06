@@ -26,22 +26,28 @@ export function useLayoutMode(): LayoutMode {
  * Keeps a gliding indicator on the selected child of `ref` (segmented controls, nav).
  * Re-measures on selection change, on resize and after web fonts load.
  */
-export function useGlide(ref: RefObject<HTMLElement | null>, selected: unknown, options?: { vertical?: boolean; cls?: string }) {
+export function useGlide(
+  ref: RefObject<HTMLElement | null>,
+  selected: unknown,
+  options?: { vertical?: boolean; grid?: boolean; cls?: string; selector?: string },
+) {
   const vertical = options?.vertical ?? false;
+  const grid = options?.grid ?? false;
   const cls = options?.cls ?? 'seg-ind';
+  const selector = options?.selector;
   useLayoutEffect(() => {
     const box = ref.current;
-    if (box) glideIndicator(box, { vertical, cls });
-  }, [ref, selected, vertical, cls]);
+    if (box) glideIndicator(box, { vertical, grid, cls, ...(selector ? { selector } : {}) });
+  }, [ref, selected, vertical, grid, cls, selector]);
   useEffect(() => {
     const box = ref.current;
     if (!box) return;
-    const update = () => glideIndicator(box, { vertical, cls });
+    const update = () => glideIndicator(box, { vertical, grid, cls, ...(selector ? { selector } : {}) });
     const ro = new ResizeObserver(update);
     ro.observe(box);
     void document.fonts?.ready.then(update);
     return () => ro.disconnect();
-  }, [ref, vertical, cls]);
+  }, [ref, vertical, grid, cls, selector]);
 }
 
 /** A ref plus the element's current width (ResizeObserver), for charts drawn in pixels. */
