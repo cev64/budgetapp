@@ -28,8 +28,9 @@ a.link { text-decoration: none }
 /* ---- shell ---- */
 .shell { min-height: 100dvh }
 .main { min-width: 0 }
-.shell.medium .main { margin-left: 100px }
-.shell.expanded .main { margin-left: 244px }
+.shell.medium { --nav-w: 100px }
+.shell.expanded { --nav-w: 244px }
+.shell .main { margin-left: var(--nav-w, 0px) }
 
 /* glass rail / side nav: a floating panel inset 12px */
 .side-nav {
@@ -94,11 +95,16 @@ a.link { text-decoration: none }
 body:has(.dock) .toast { bottom: calc(88px + env(safe-area-inset-bottom)) }
 @media (max-width: 370px) { .bottom-nav .nav-item { padding-left: 4px; padding-right: 4px; letter-spacing: -.2px } }
 
-/* ---- top bar: transparent at rest, glass + compact title once the large title scrolls under ---- */
-.topbar { position: sticky; top: 0; z-index: 30; height: 52px }
+/* ---- top bar: transparent at rest, glass + compact title once the large title scrolls under ----
+   The glass runs full bleed behind the floating nav (no square corner beside it) and fades out over
+   --bar-fade below the bar through a mask, so there is no hard bottom edge or shadow line. */
+.topbar { position: sticky; top: 0; z-index: 30; height: 52px; --bar-fade: 28px }
 .topbar::before {
-  content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity .2s var(--ease);
-  background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); box-shadow: var(--bar-shadow);
+  content: ''; position: absolute; top: 0; right: 0; bottom: calc(-1 * var(--bar-fade)); left: calc(-1 * var(--nav-w, 0px));
+  z-index: -1; opacity: 0; transition: opacity .2s var(--ease); pointer-events: none;
+  background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+  -webkit-mask-image: linear-gradient(#000 calc(100% - var(--bar-fade) - 12px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - var(--bar-fade) - 12px), transparent);
 }
 .topbar.condensed::before { opacity: 1 }
 .topbar-inner { max-width: 1240px; height: 100%; margin: 0 auto; padding: 0 8px 0 16px; display: flex; align-items: center; gap: 10px }
