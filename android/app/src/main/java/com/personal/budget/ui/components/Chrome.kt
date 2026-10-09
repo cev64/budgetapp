@@ -60,10 +60,15 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
@@ -74,6 +79,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -96,6 +102,9 @@ sealed interface SyncIndicator {
 
 /** Padding the app shell reserves (floating bottom nav on compact) that screens add inside their scroll. */
 val LocalShellPadding = staticCompositionLocalOf { PaddingValues(0.dp) }
+
+/** Width the shell reserves at the start for the floating rail; the top bar's glass reaches under it. */
+val LocalShellStartReach = staticCompositionLocalOf { 0.dp }
 
 /** Whether the app shell is showing the top-bar Settings gear etc. */
 val LocalShowSettingsGear = staticCompositionLocalOf { true }
@@ -138,10 +147,14 @@ fun SyncIndicator.describe(): String = when (this) {
 /** Height of the compact top bar (below the status bar). */
 val TopBarHeight = 52.dp
 
+/** The condensed bar's glass runs this far below the bar and fades out over it (no hard bottom edge). */
+val TopBarFade = 28.dp
+
 /**
  * Collapsing top bar (FLUID_GLASS v2 §5): 52dp, transparent at rest while the page shows its
- * [LargeTitle]; once that scrolls under ([scrolled]), the bar turns blurred `glass-strong` with a
- * soft bottom shadow and the compact title (Inter 17/600) cross-fades in (200 ms). Sync dot and
+ * [LargeTitle]; once that scrolls under ([scrolled]), the bar turns blurred `glass-strong` and the
+ * compact title (Inter 17/600) cross-fades in (200 ms). The glass runs [TopBarFade] past the bar,
+ * fading out over it, and reaches under the side rail, so it has no hard bottom edge or corner. Sync dot and
  * Settings stay on the right. [titleAlways] keeps the compact title visible (screens without a
  * large title, e.g. a detail pane).
  */
@@ -160,11 +173,23 @@ fun GlassTopBar(
     val a by animateFloatAsState(if (scrolled) 1f else 0f, if (reduce) tween(0) else tween(Motion.BAR_CONDENSE, easing = Motion.Ease), label = "barGlass")
     val titleA by animateFloatAsState(if (scrolled || titleAlways) 1f else 0f, if (reduce) tween(0) else tween(Motion.BAR_CONDENSE, easing = Motion.Ease), label = "barTitle")
     Box(modifier.fillMaxWidth()) {
+        val reach = LocalShellStartReach.current
         Box(
             Modifier
                 .matchParentSize()
-                .graphicsLayer { alpha = a }
-                .softShadow(RectangleShape, c.shadow.copy(alpha = if (c.isDark) .5f else .18f), 24.dp, 8.dp, (-12).dp)
+                .layout { measurable, constraints ->
+                    // Grow under the rail (start) and down by the fade; the bar's own size is unchanged.
+                    val start = reach.roundToPx()
+                    val p = measurable.measure(Constraints.fixed(constraints.maxWidth + start, constraints.maxHeight + TopBarFade.roundToPx()))
+                    layout(constraints.maxWidth, constraints.maxHeight) { p.placeRelative(-start, 0) }
+                }
+                // Offscreen so the alpha fade and the bottom mask apply to the blur and fill as one.
+                .graphicsLayer { alpha = a; compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    val solid = 1f - TopBarFade.toPx() / size.height
+                    drawRect(Brush.verticalGradient(0f to Color.Black, solid to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
+                }
                 .blurredGlass(LocalFrameHaze.current, RectangleShape),
         )
         Row(

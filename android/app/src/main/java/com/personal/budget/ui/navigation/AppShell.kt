@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
@@ -19,13 +20,13 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -40,6 +41,7 @@ import com.personal.budget.ui.components.FloatingNavBar
 import com.personal.budget.ui.components.FloatingNavHeight
 import com.personal.budget.ui.components.GlassRail
 import com.personal.budget.ui.components.LocalShellHaze
+import com.personal.budget.ui.components.LocalShellStartReach
 import com.personal.budget.ui.components.LocalShellPadding
 import com.personal.budget.ui.components.LocalTopBarActions
 import com.personal.budget.ui.components.Lucide
@@ -116,6 +118,8 @@ fun AppShell(
         val actions = remember(indicator) {
             TopBarActions(onSync = { main.syncNow() }, onSettings = { navController.navigate(Routes.SETTINGS) { launchSingleTop = true } }, sync = indicator)
         }
+        val railInset = WindowInsets.displayCutout.union(WindowInsets.navigationBars).only(WindowInsetsSides.Start)
+        val railReserve = if (layout.isCompact) 0.dp else railInset.asPaddingValues().calculateStartPadding(LocalLayoutDirection.current) + railWidth(wideRail) + 12.dp
         // Content padding: the floating nav (60 + 12 + inset) plus breathing room on the cover screen.
         val bottomReserve = if (layout.isCompact) FloatingNavHeight + 12.dp + navBottom + 20.dp else navBottom + 20.dp
         CompositionLocalProvider(
@@ -130,14 +134,10 @@ fun AppShell(
                     Row(Modifier.fillMaxSize()) {
                         if (!layout.isCompact) {
                             // The rail floats over the field: inset 12 + its width + 12 gap.
-                            Spacer(
-                                Modifier
-                                    .windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.navigationBars).only(WindowInsetsSides.Start))
-                                    .width(railWidth(wideRail) + 12.dp),
-                            )
+                            Spacer(Modifier.width(railReserve))
                         }
                         Box(Modifier.weight(1f).fillMaxSize()) {
-                            CompositionLocalProvider(LocalShellPadding provides PaddingValues(bottom = bottomReserve)) {
+                            CompositionLocalProvider(LocalShellPadding provides PaddingValues(bottom = bottomReserve), LocalShellStartReach provides railReserve) {
                                 NavHost(
                                     navController = navController,
                                     startDestination = startRoute,
