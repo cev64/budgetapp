@@ -50,14 +50,17 @@ status dot (green = synced, pulsing accent = syncing, amber = offline/pending), 
 Shadow appears only once content scrolls under it.
 
 ## Home
-1. **Hero card** (`card`): micro-label "LEFTOVER · OCTOBER", hero number (actual leftover),
-   under it "of $350 planned" in `ink-2`. A stacked 8px bar: expenses (`ink` 80%), saved (`accent`),
-   leftover (`good`) as shares of income.
+1. **Hero card** (`card`): micro-label "LEFT TO SPEND · OCTOBER", hero number = expected − actual
+   monthly expenses (the Monthly expenses difference with its sign flipped; "OVER BUDGET · OCTOBER" in
+   `bad` once spending passes the budget), under it "$2,853 spent of $3,190 budgeted" in `ink-2`. An 8px
+   bar of the expense budget: spent (`ink` 80%) then left (`good`), or the overspend in `bad`. Legend:
+   Spent, Left (or Over), Leftover (the month's actual leftover, `accent`).
 2. **Tiles row** (2 columns compact, 4 expanded): Income, Expenses, Saved, Net worth. Each: micro-label,
    value, small "of $X" or delta line.
 3. **Budgets card**: one row per expense category: name, "$128 of $400", right-aligned remaining
    ("$272 left" in `ink-2` or "$45 over" in `bad`), 6px progress bar under it.
-4. **Recent** card: last 8 transactions: item, category pill, date, amount (FLIP-animated list).
+4. **Recent** card: the 8 most recently entered transactions (by when they were added, not the date on
+   them): item, category pill, date, amount (FLIP-animated list).
 
 ## Month
 Header: `‹ October 2026 ›` with year/month picker, "Closed" switch with lock icon.

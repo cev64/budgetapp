@@ -52,3 +52,52 @@ export function shortDate(iso: string | null): string {
   if (!m) return iso;
   return `${monthShort(Number(m[2]))} ${Number(m[3])}`;
 }
+
+/** The year that puts month/day closest to the budget month `near` (Dec 30 typed in January = last year). */
+function nearestYear(month: number, day: number, near: YM): number {
+  let best = near.year;
+  let bestGap = Infinity;
+  for (const y of [near.year - 1, near.year, near.year + 1]) {
+    const gap = Math.abs(ymIndex({ year: y, month }) - ymIndex(near)) * 31 + Math.abs(day - 15) / 100;
+    if (gap < bestGap) [best, bestGap] = [y, gap];
+  }
+  return best;
+}
+
+/**
+ * Typed date → ISO. Accepts "10/3", "10-3", "10/3/26", "10/3/2026", "2026-10-03", "Oct 3", "3"
+ * (day of the budget month) and "today"/"t"; a missing year is the one nearest the budget month.
+ * Returns null for blank and undefined for anything that isn't a real date.
+ */
+export function parseDateInput(input: string, near: YM, today: Date = new Date()): string | null | undefined {
+  const s = input.trim().toLowerCase();
+  if (s === '') return null;
+  if (s === 't' || s === 'today') return todayIso(today);
+  let y: number | undefined;
+  let m: number;
+  let d: number;
+  let r: RegExpExecArray | null;
+  if ((r = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s))) [y, m, d] = [Number(r[1]), Number(r[2]), Number(r[3])];
+  else if ((r = /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2}|\d{4}))?$/.exec(s))) {
+    [m, d] = [Number(r[1]), Number(r[2])];
+    if (r[3]) y = r[3].length === 2 ? 2000 + Number(r[3]) : Number(r[3]);
+  } else if ((r = /^([a-z]{3,9})\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?$/.exec(s))) {
+    const i = MONTH_NAMES.findIndex((n) => n.toLowerCase().startsWith(r![1]!));
+    if (i < 0 || r[1]!.length < 3) return undefined;
+    [m, d] = [i + 1, Number(r[2])];
+    if (r[3]) y = Number(r[3]);
+  } else if ((r = /^(\d{1,2})$/.exec(s))) [y, m, d] = [near.year, near.month, Number(r[1])];
+  else return undefined;
+  if (m < 1 || m > 12) return undefined;
+  const year = y ?? nearestYear(m, d, near);
+  if (d < 1 || d > daysInMonth(year, m)) return undefined;
+  return `${year}-${pad(m)}-${pad(d)}`;
+}
+
+/** Editor text for a stored date: "10/3", with the year only when parseDateInput wouldn't infer it. */
+export function dateInputText(iso: string | null, near: YM): string {
+  const r = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  if (!r) return iso ?? '';
+  const [y, m, d] = [Number(r[1]), Number(r[2]), Number(r[3])];
+  return nearestYear(m, d, near) === y ? `${m}/${d}` : `${m}/${d}/${y}`;
+}

@@ -77,14 +77,12 @@ export function Shell() {
     }
   }, [params, setParams, api]);
 
-  // The Sheet wants every pixel: the 220px side nav collapses to the 80px rail there (restored on leaving).
-  const navMode = useNavMode();
   const openAdd = useCallback(() => api.openAdd(addDefaultsRef.current), [api]);
 
   return (
     <SheetContext.Provider value={api}>
-      <div className={`shell ${navMode}`}>
-        {navMode !== 'compact' && <SideNav mode={navMode} onAdd={openAdd} />}
+      <div className={`shell ${mode}`}>
+        {mode !== 'compact' && <SideNav mode={mode} onAdd={openAdd} />}
         <div className="main">
           <Outlet />
         </div>
@@ -155,13 +153,6 @@ interface PageProps {
   className?: string;
 }
 
-/** Layout mode for navigation: like useLayoutMode, but the Sheet route uses the rail instead of the side nav. */
-function useNavMode() {
-  const mode = useLayoutMode();
-  const { pathname } = useLocation();
-  return mode === 'expanded' && pathname.startsWith('/sheet') ? 'medium' : mode;
-}
-
 /**
  * Screen frame. A large title block scrolls with the content; once it passes under the 52px top bar,
  * the bar turns to glass and a compact title fades in (docs/FLUID_GLASS_UI.md §5).
@@ -169,7 +160,7 @@ function useNavMode() {
 export function Page({ label, title, actions, children, className }: PageProps) {
   const sentinel = useRef<HTMLDivElement>(null);
   const [condensed, setCondensed] = useState(false);
-  const navMode = useNavMode();
+  const navMode = useLayoutMode();
   const { openAdd } = useSheets();
   const location = useLocation();
   useEffect(() => {

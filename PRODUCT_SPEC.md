@@ -26,10 +26,10 @@ Navigation destinations: **Home · Month · Year · Net worth · Sheet**, plus *
 on web, plus keyboard shortcut `N`).
 
 ### Home (dashboard for the current month; falls back to the latest month)
-- Hero: **Leftover this month**, actual vs expected, with a stacked progress bar (spent / saved / left).
+- Hero: **Left to spend this month** (expected − actual monthly expenses), with a bar of spent / left of the expense budget.
 - Tiles: Income (actual / expected), Expenses (actual / expected), Saved (actual / expected), Net worth (with 30-day change and a tiny sparkline).
 - "Budgets" list: every expense category with a progress bar (actual / expected) and remaining amount.
-- Recent transactions (last 8) across categories, tap to edit.
+- Recent transactions (the 8 most recently entered, by when they were added) across categories, tap to edit.
 - Banner when the current calendar month doesn't exist yet: "Start October" button.
 
 ### Month

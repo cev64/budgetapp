@@ -12,7 +12,7 @@ import { toast } from '../ui/Toast';
 import { computeNetWorth } from '../domain/networth';
 import { currentYm, monthName, ymKey, ymLabel } from '../domain/dates';
 import { suggestedMonth } from '../domain/newMonth';
-import { compareTransactionsDesc } from './txSort';
+import { compareEnteredDesc } from './txSort';
 import { useLayoutMode } from '../ui/hooks';
 import { Sparkline } from '../ui/HistoryChart';
 import { ChangeLine, useSnapshots } from './NetWorthHistory';
@@ -40,7 +40,7 @@ export function HomeScreen() {
   const nwSeries = useMemo(() => seriesOf(snaps, 'net_worth'), [snaps]);
   const nwChange = changeOver(nwSeries, 30);
   const nwSpark = useMemo(() => rangePoints(nwSeries, 30), [nwSeries]);
-  const recent = useMemo(() => ds.transactions.slice().sort(compareTransactionsDesc).slice(0, 8), [ds.transactions]);
+  const recent = useMemo(() => ds.transactions.slice().sort(compareEnteredDesc).slice(0, 8), [ds.transactions]);
 
   const start = async (ym: YM) => {
     if (await actions.createMonth(ym)) {
@@ -145,26 +145,33 @@ export function HomeScreen() {
   );
 }
 
+/** Left to spend: expected − actual monthly expenses (the Monthly expenses difference, sign flipped). */
 function Hero({ summary, money }: { summary: MonthSummary; money: MoneyFormat }) {
-  const a = summary.actual;
-  const total = Math.max(a.income, a.expenses + a.contributions, 1);
+  const budget = summary.expected.expenses;
+  const spent = summary.actual.expenses;
+  const left = budget - spent;
+  const over = left < 0;
+  const total = Math.max(budget, spent, 1);
   const share = (v: number) => `${(Math.max(0, v) / total) * 100}%`;
   return (
     <section className="card hero">
-      <div className="micro">Leftover · {monthName(summary.month)}</div>
-      <div className={`hero-num${a.leftover < 0 ? ' tone-bad' : ''}`}>
-        <Num value={a.leftover} format={money} />
+      <div className="micro">{over ? 'Over budget' : 'Left to spend'} · {monthName(summary.month)}</div>
+      <div className={`hero-num${over ? ' tone-bad' : ''}`}>
+        <Num value={Math.abs(left)} format={money} />
       </div>
-      <div className="hero-sub">of {money(summary.expected.leftover)} planned</div>
+      <div className="hero-sub">{money(spent)} spent of {money(budget)} budgeted</div>
       <div className="stack-bar" aria-hidden="true">
-        <span className="seg-spent" style={{ width: share(a.expenses) }} />
-        <span className="seg-saved" style={{ width: share(a.contributions) }} />
-        <span className="seg-left" style={{ width: share(a.leftover) }} />
+        <span className="seg-spent" style={{ width: share(Math.min(spent, budget)) }} />
+        {over
+          ? <span className="seg-over" style={{ width: share(spent - budget) }} />
+          : <span className="seg-left" style={{ width: share(left) }} />}
       </div>
       <div className="stack-legend">
-        <span><i className="key spent" />Spent {money(a.expenses)}</span>
-        <span><i className="key saved" />Saved {money(a.contributions)}</span>
-        <span><i className="key left" />Left {money(a.leftover)}</span>
+        <span><i className="key spent" />Spent {money(spent)}</span>
+        {over
+          ? <span><i className="key over" />Over {money(-left)}</span>
+          : <span><i className="key left" />Left {money(left)}</span>}
+        <span><i className="key saved" />Leftover {money(summary.actual.leftover)}</span>
       </div>
     </section>
   );

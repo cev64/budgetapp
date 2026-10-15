@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Home (web and Android): the hero is now **Left to spend** this month, expected − actual monthly
+  expenses (the Monthly expenses difference), turning to "Over budget" in red once spending passes the
+  budget. The month's leftover moves to the hero's legend.
+- Home (web and Android): Recent lists the transactions you entered most recently, by when they were
+  added rather than the date on them.
+- Web: the side nav no longer collapses to the rail on the Sheet.
+- Web Sheet: click selects and a second click / double-click / typing edits; dates are typed (10/3,
+  Oct 3, 3, t); Delete clears; Ctrl/Cmd+Z undo; copy and paste (paste a block of lines into an add row
+  to create one row per line); Tab from an add row continues on the new row; the selection stays on
+  its cell as rows move; unreadable input is dropped with a toast instead of a stuck editor; "(12.50)"
+  reads as −12.50; Ctrl/Cmd+arrows, Home/End and PageUp/PageDown.
+- Web Sheet: ledger Item / Amount columns size to their contents so items aren't cut off; the grid
+  scrolls inside a window-height box so the horizontal scrollbar is always on screen, and keyboard
+  moves scroll the selected cell clear of the pinned columns.
+
 ## 1.3.0 — Fluid glass v2
 
 ### Changed

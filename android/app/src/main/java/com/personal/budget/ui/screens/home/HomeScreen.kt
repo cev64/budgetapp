@@ -71,11 +71,16 @@ import com.personal.budget.ui.screens.paletteFor
 import com.personal.budget.ui.components.CategoryMark
 import com.personal.budget.ui.screens.shortDate
 import com.personal.budget.ui.theme.Budget
+import java.time.OffsetDateTime
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** created_at as epoch ms (server "+00:00", device "Z"); a missing or unreadable one sorts newest. */
+private fun enteredAt(t: Txn): Long =
+    t.createdAt?.let { runCatching { OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() } ?: Long.MAX_VALUE
 
 data class RecentRow(val txn: Txn, val category: Category?)
 
@@ -100,7 +105,8 @@ class HomeViewModel(private val c: AppContainer, @Suppress("unused") handle: Sav
         val key = if (book.exists(today)) today else book.latestMonth() ?: today
         val summary = if (book.exists(key)) book.monthSummary(key) else null
         val recent = s.transactions
-            .sortedWith(compareByDescending<Txn> { it.year * 100 + it.month }.thenByDescending { it.date ?: "" }.thenByDescending { it.createdAt ?: "" })
+            // Most recently entered first (when it was added, not the date on it).
+            .sortedWith(compareByDescending<Txn> { enteredAt(it) }.thenByDescending { it.date ?: "" }.thenByDescending { it.year * 100 + it.month })
             .take(8)
             .map { RecentRow(it, book.categoriesById[it.categoryId]) }
         return HomeUi(
@@ -197,30 +203,34 @@ private fun StartBanner(month: MonthKey, onStart: () -> Unit) {
     }
 }
 
+/** Left to spend: expected − actual monthly expenses (the Monthly expenses difference, sign flipped). */
 @Composable
 private fun Hero(state: HomeUi) {
     val c = Budget.colors
     val s = state.summary ?: return
-    val income = maxOf(s.actual.income, s.actual.expenses + s.actual.contributions + maxOf(s.actual.leftover, 0.0), 1.0)
+    val budget = s.expected.expenses
+    val spent = s.actual.expenses
+    val left = budget - spent
+    val over = left < 0
+    val total = maxOf(budget, spent, 1.0)
     BudgetCard(padding = PaddingValues(20.dp)) {
-        MicroLabel("Leftover · ${state.month.name}")
+        MicroLabel("${if (over) "Over budget" else "Left to spend"} · ${state.month.name}")
         Spacer(Modifier.height(6.dp))
-        AnimatedMoney(s.actual.leftover, style = Budget.type.hero, color = if (s.actual.leftover < 0) c.bad else c.ink)
+        AnimatedMoney(kotlin.math.abs(left), style = Budget.type.hero, color = if (over) c.bad else c.ink)
         Spacer(Modifier.height(2.dp))
-        Text("of ${Money.format(s.expected.leftover)} planned", style = Budget.type.secondary, color = c.ink2)
+        Text("${Money.format(spent)} spent of ${Money.format(budget)} budgeted", style = Budget.type.secondary, color = c.ink2)
         Spacer(Modifier.height(18.dp))
         StackedBar(
             listOf(
-                (s.actual.expenses / income).toFloat() to c.ink.copy(alpha = .8f),
-                (s.actual.contributions / income).toFloat() to c.accent,
-                (maxOf(s.actual.leftover, 0.0) / income).toFloat() to c.good,
+                (minOf(spent, budget) / total).toFloat() to c.ink.copy(alpha = .8f),
+                (kotlin.math.abs(left) / total).toFloat() to if (over) c.bad else c.good,
             ),
         )
         Spacer(Modifier.height(10.dp))
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Legend("Spent", Money.format(s.actual.expenses), c.ink.copy(alpha = .8f))
-            Legend("Saved", Money.format(s.actual.contributions), c.accent)
-            Legend("Left", Money.format(maxOf(s.actual.leftover, 0.0)), c.good)
+            Legend("Spent", Money.format(spent), c.ink.copy(alpha = .8f))
+            if (over) Legend("Over", Money.format(-left), c.bad) else Legend("Left", Money.format(left), c.good)
+            Legend("Leftover", Money.format(s.actual.leftover), c.accent)
         }
     }
 }

@@ -232,11 +232,13 @@ body:has(.dock) .toast { bottom: calc(88px + env(safe-area-inset-bottom)) }
 .seg-spent { background: color-mix(in srgb, var(--ink) 78%, transparent) }
 .seg-saved { background: var(--accent) }
 .seg-left { background: var(--good) }
+.seg-over { background: var(--bad) }
 .stack-legend, .chart-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; line-height: 20px; color: var(--ink-2) }
 .key { display: inline-block; width: 8px; height: 8px; border-radius: 99px; margin-right: 7px; vertical-align: 1px }
 .key.spent { background: color-mix(in srgb, var(--ink) 78%, transparent) }
 .stack-legend .key.saved { background: var(--accent) }
 .key.left { background: var(--good) }
+.key.over { background: var(--bad) }
 .chart-legend .key.spent { background: var(--accent); border-radius: 2px }
 .key.mark { height: 2px; width: 12px; background: var(--ink); vertical-align: 3px; border-radius: 1px }
 
@@ -653,7 +655,12 @@ html:has(.sheet-page) { scrollbar-gutter: auto }
 /* (.sheet-body is also the modal sheet's scroll body: undo that here so the tab bar sticks to the viewport.) */
 .sheet-page .sheet-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; overflow: visible; margin: 0; padding: 0 }
 .sheet-card { padding: 0; overflow: hidden }
-.sheet-scroll { overflow-x: auto; overscroll-behavior-x: contain }
+/* A bounded box that scrolls both ways: the horizontal scrollbar stays on screen (above the floating tab
+   bar) instead of at the bottom of a long month, and side-to-side scrolling never drags the page. */
+.sheet-scroll {
+  overflow: auto; overscroll-behavior-x: contain; max-height: calc(100dvh - 52px - 96px);
+  scrollbar-width: thin; scrollbar-color: var(--line-2) transparent;
+}
 .sheet-grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; font: 400 14px/20px var(--body); font-feature-settings: var(--nums) }
 .sheet-grid .sc {
   position: relative; height: 36px; padding: 6px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
@@ -719,7 +726,6 @@ html:has(.sheet-page) { scrollbar-gutter: auto }
   box-shadow: inset 0 0 0 2px var(--focus-ring), 0 6px 18px rgba(var(--shadow-rgb), .14); outline: none;
 }
 .sc-editor.money { text-align: right }
-.sc-editor[type="date"] { min-width: 150px; width: auto }
 .sc-editor.invalid { box-shadow: inset 0 0 0 2px var(--bad) }
 .sc-check {
   display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--control-border);
