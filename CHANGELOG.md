@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 — Left to spend, smoother Sheet
 
 ### Changed
 - Home (web and Android): the hero is now **Left to spend** this month, expected − actual monthly
