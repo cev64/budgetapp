@@ -183,7 +183,7 @@ stored in localStorage). Breakpoints follow UI_ANATOMY: under 600px a detached f
 Year, Net worth, Sheet) with a gliding indicator and the round Add beside it; 600–1023px a 76px floating glass rail
 with Add on top; from 1024px a 220px floating glass side nav, an Add button in the top bar, and multi-pane screens
 (Month list + category detail, Year tables + chart, Net worth accounts and ledger side by side). The Sheet route
-always uses the rail. Each screen has a large title that scrolls away under a 52px top bar, which then turns to
+keeps the same nav as every other screen. Each screen has a large title that scrolls away under a 52px top bar, which then turns to
 glass with a compact title. Phone width (412px, Galaxy Fold cover) is a primary target, and nothing scrolls
 sideways at 360px. Keyboard: **N** opens the add sheet; Escape closes sheets and menus.
 

@@ -144,3 +144,56 @@ describe('summary grid (SHEET_VIEW summary tab)', () => {
     expect(actions.saveLedgerEntry).toHaveBeenCalledWith(expect.objectContaining({ name: 'Friend owes', settled: true }));
   });
 });
+
+describe('sheet robustness', () => {
+  const nov = { year: 2025, month: 11 };
+
+  it('cells carry stable keys', () => {
+    const { d } = deps();
+    const g = buildMonthGrid(d, nov);
+    expect(at(g, 'C', 6).key).toBe(`cat:${id('Food')}:expected`);
+    expect(at(g, 'H', 6).key).toBe(`add:${id('Paychecks')}:item`);
+    expect(at(g, 'L', 4).key).toMatch(/^tx:.+:item$/);
+  });
+
+  it('dates can be typed; a bad date keeps the editor open', () => {
+    const { d, actions } = deps();
+    const g = buildMonthGrid(d, nov);
+    const date = at(g, 'K', 4); // Food "dinner", Oct 30 2025
+    expect(date.edit!.initial).toBe('10/30');
+    expect(date.edit!.commit('11/2')).toBe(true);
+    expect(actions.saveTransaction).toHaveBeenLastCalledWith(expect.objectContaining({ date: '2025-11-02', item: 'dinner' }));
+    expect(date.edit!.commit('13/40')).toBe(false);
+  });
+
+  it('edits record an undo that restores the row as it was', () => {
+    const pushed: (() => void)[] = [];
+    const { d, actions } = deps({ pushUndo: (fn) => pushed.push(fn) });
+    const g = buildMonthGrid(d, nov);
+    at(g, 'M', 4).edit!.commit('(12.50)');
+    expect(actions.saveTransaction).toHaveBeenLastCalledWith(expect.objectContaining({ item: 'dinner', amount: -12.5 }));
+    expect(pushed).toHaveLength(1);
+    pushed[0]!();
+    expect(actions.saveTransaction).toHaveBeenLastCalledWith(expect.objectContaining({ item: 'dinner', amount: 80 }));
+  });
+
+  it('edits merge into the latest stored row', () => {
+    const { d, actions } = deps({ fresh: (_table, row) => ({ ...row, item: 'renamed' }) });
+    at(buildMonthGrid(d, nov), 'M', 4).edit!.commit('5');
+    expect(actions.saveTransaction).toHaveBeenLastCalledWith(expect.objectContaining({ item: 'renamed', amount: 5 }));
+  });
+
+  it('typing in an add row reports the created row; pasting lines adds one row each', () => {
+    const onCreate = vi.fn();
+    let n = 0;
+    const { d, actions } = deps({ onCreate, newId: () => `new-${++n}` });
+    const g = buildMonthGrid(d, nov);
+    const add = at(g, 'P', 6); // Fun add row, item
+    add.edit!.commit('Movie');
+    expect(onCreate).toHaveBeenCalledWith(`add:${id('Fun')}:item`, 'new-1');
+    const made = at(g, 'O', 6).addRows!([['10/5', 'Bowling', '24'], ['10/6', 'Arcade', '$1,005.50'], ['', '', ''], ['nope', 'x', '1']]);
+    expect(made).toBe(2);
+    expect(actions.saveTransaction).toHaveBeenCalledWith(expect.objectContaining({ item: 'Arcade', amount: 1005.5, date: '2025-10-06', category_id: id('Fun') }));
+  });
+
+});

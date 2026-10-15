@@ -3,8 +3,8 @@ import type { Calc, YearSummary } from '../domain/calc';
 import type { NetWorth } from '../domain/networth';
 import { ledgerColumns, leftRows, sortLedger, blockHeight } from '../domain/sheet';
 import { diffTone, formatMoney, formatPercent, parseAmount, amountInputText, monthClosedMessage, type Tone } from '../domain/format';
-import { monthName, shortDate } from '../domain/dates';
-import type { Category, LedgerEntry, Transaction, YM } from '../domain/types';
+import { dateInputText, monthName, parseDateInput, shortDate } from '../domain/dates';
+import type { Account, Category, LedgerEntry, Transaction, YM } from '../domain/types';
 
 // The Sheet view as data: a matrix of cells laid out per docs/SHEET_VIEW.md, each wired to the existing
 // actions. The React grid (Sheet.tsx) only renders and handles keys. No new math: every number comes
@@ -26,6 +26,10 @@ export interface CellEdit {
 }
 
 export interface Cell {
+  /** Stable identity across rebuilds (e.g. "tx:<id>:amount"), so the selection follows its cell. */
+  key?: string;
+  /** Add-row cells: create one row per pasted line (fields from this cell's column on); returns how many. */
+  addRows?: (lines: string[][]) => number;
   /** void = outside any block (spacer columns, below a short block): no rules, not selectable. */
   kind: 'void' | 'blank' | 'header' | 'title' | 'label' | 'value';
   text?: string;
@@ -76,7 +80,17 @@ export interface SheetDeps {
   /** Toast, optionally with an Undo action. */
   notify: (text: string, undo?: () => void) => void;
   moveToMonth: (t: Transaction) => void;
+  /** Records how to revert a change just written (Ctrl/Cmd+Z in the grid). */
+  pushUndo?: (undo: () => void) => void;
+  /** An add row created a row: lets the grid move on to that row's next cell. */
+  onCreate?: (addKey: string, id: string) => void;
+  /** The latest stored copy of a row: edits merge into it, so two edits to one row never undo each other. */
+  fresh?: <T extends Transaction | LedgerEntry | Account>(table: 'transactions' | 'ledger_entries' | 'accounts', row: T) => T;
 }
+
+const undoable = (deps: SheetDeps, undo: () => void) => deps.pushUndo?.(undo);
+const latest = <T extends Transaction | LedgerEntry | Account>(deps: SheetDeps, table: 'transactions' | 'ledger_entries' | 'accounts', row: T): T =>
+  deps.fresh?.(table, row) ?? row;
 
 const VOID: Cell = { kind: 'void' };
 const BLANK: Cell = { kind: 'blank' };
@@ -99,17 +113,29 @@ const AMOUNT_W = 92;
 /** Rough width of a block title (15/600 + palette symbol + padding) so a block is never narrower than its title. */
 const titleWidth = (name: string) => 20 + 13 + 7 + Math.ceil(name.length * 8.6);
 
-const LEDGER_COLS = (keys: [string, string, string], titles: string[]): Column[] => {
-  const extra = Math.max(0, ...titles.map(titleWidth)) - (DATE_W + ITEM_W + AMOUNT_W);
+/** Rough rendered width of 14px body text (cell padding 2 × 10 included). */
+const textWidth = (text: string) => 24 + Math.ceil(text.length * 8.2);
+const ITEM_MAX = 280;
+
+/**
+ * Item and Amount widths grow to fit the longest item / amount in the column (Item capped at 280px,
+ * where it ellipsizes with the full text in the tooltip); the block is never narrower than its titles.
+ */
+const LEDGER_COLS = (keys: [string, string, string], blocks: { title: string; items: string[]; amounts: string[] }[]): Column[] => {
+  const item = Math.min(ITEM_MAX, Math.max(ITEM_W, ...blocks.flatMap((b) => b.items.map(textWidth))));
+  const amount = Math.max(AMOUNT_W, ...blocks.flatMap((b) => b.amounts.map((a) => textWidth(a) + 8)));
+  const extra = Math.max(0, ...blocks.map((b) => titleWidth(b.title))) - (DATE_W + item + amount);
   return [
     { key: keys[0], width: DATE_W },
-    { key: keys[1], width: ITEM_W + Math.max(0, extra) },
-    { key: keys[2], width: AMOUNT_W },
+    { key: keys[1], width: item + Math.max(0, extra) },
+    { key: keys[2], width: amount },
   ];
 };
 
 function parseMoney(text: string, nullable: boolean): number | null | undefined {
-  const v = parseAmount(text);
+  // Spreadsheet-style negatives: "(12.50)".
+  const paren = /^\s*\((.*)\)\s*$/.exec(text);
+  const v = paren ? -(parseAmount(paren[1]!) ?? Number.NaN) : parseAmount(text);
   if (v !== null && Number.isNaN(v)) return undefined;
   return v === null ? (nullable ? null : 0) : v;
 }
@@ -147,21 +173,26 @@ export function buildMonthGrid(deps: SheetDeps, ym: YM): Grid {
     } else if (lr.type === 'category') {
       const line = lines.get(lr.category.id)!;
       const c = lr.category;
-      place(rows, r, 0, { kind: 'label', text: c.name, categoryId: c.id });
-      place(rows, r, 1, moneyCell(deps, line.budget?.expected ?? null, {
+      place(rows, r, 0, { kind: 'label', text: c.name, categoryId: c.id, key: `cat:${c.id}:name` });
+      const expected = line.budget?.expected ?? null;
+      place(rows, r, 1, moneyCell(deps, expected, {
+        key: `cat:${c.id}:expected`,
         edit: {
           type: 'money',
-          initial: amountInputText(line.budget?.expected),
+          initial: amountInputText(expected),
           commit: (text) => {
             const v = parseMoney(text, true);
             if (v === undefined) return false;
-            if (v !== (line.budget?.expected ?? null)) void actions.setBudget(ym, c.id, { expected: v });
+            if (v !== expected) {
+              void actions.setBudget(ym, c.id, { expected: v });
+              undoable(deps, () => void actions.setBudget(ym, c.id, { expected }));
+            }
             return true;
           },
         },
       }));
       place(rows, r, 2, actualCell(deps, ym, c, line.budget?.actual ?? null, line.ledgerSum));
-      place(rows, r, 3, moneyCell(deps, line.difference, { computed: true, tone: diffTone(c.kind, line.difference) }));
+      place(rows, r, 3, moneyCell(deps, line.difference, { computed: true, tone: diffTone(c.kind, line.difference), key: `cat:${c.id}:diff` }));
     } else if (lr.type === 'spacer') {
       for (let c = 0; c < 4; c++) place(rows, r, c, BLANK);
     } else if (lr.type === 'total') {
@@ -177,7 +208,7 @@ export function buildMonthGrid(deps: SheetDeps, ym: YM): Grid {
     } else if (lr.type === 'closed') {
       place(rows, r, 0, { kind: 'label', text: 'Month closed' });
       place(rows, r, 1, {
-        kind: 'value', align: 'center',
+        kind: 'value', align: 'center', key: 'month:closed',
         check: {
           checked: summary.closed,
           label: 'Month closed',
@@ -186,6 +217,7 @@ export function buildMonthGrid(deps: SheetDeps, ym: YM): Grid {
             void actions.setMonthClosed(ym, next).then((ok) => {
               if (ok) deps.notify(next ? monthClosedMessage(monthName(ym.month)) : `${monthName(ym.month)} is open again.`);
             });
+            undoable(deps, () => void actions.setMonthClosed(ym, !next));
           },
         },
       });
@@ -203,7 +235,11 @@ export function buildMonthGrid(deps: SheetDeps, ym: YM): Grid {
   }
   const visible = calc.categories.filter((c) => !c.archived || (txs.get(c.id)?.length ?? 0) > 0);
   const cols = ledgerColumns(visible, (id) => txs.get(id)?.length ?? 0);
-  const titles = (i: number) => cols[i]!.map((c) => c.name);
+  const titles = (i: number) => cols[i]!.map((c) => ({
+    title: c.name,
+    items: (txs.get(c.id) ?? []).map((t) => t.item),
+    amounts: (txs.get(c.id) ?? []).map((t) => deps.money(t.amount)),
+  }));
   const columns = [
     ...LEFT_COLS, SPACER('F'), ...LEDGER_COLS(['G', 'H', 'I'], titles(0)), SPACER('J'),
     ...LEDGER_COLS(['K', 'L', 'M'], titles(1)), SPACER('N'), ...LEDGER_COLS(['O', 'P', 'Q'], titles(2)),
@@ -227,14 +263,19 @@ function actualCell(deps: SheetDeps, ym: YM, c: Category, typed: number | null, 
     const v = parseMoney(text, true);
     if (v === undefined) return false;
     deps.setOverriding(c.id, false);
-    if (v !== typed) void actions.setBudget(ym, c.id, { actual: v });
+    if (v !== typed) {
+      void actions.setBudget(ym, c.id, { actual: v });
+      undoable(deps, () => void actions.setBudget(ym, c.id, { actual: typed }));
+    }
     return true;
   };
+  const key = `cat:${c.id}:actual`;
   if (c.tracking === 'manual') {
-    return moneyCell(deps, typed, { edit: { type: 'money', initial: amountInputText(typed), commit: commitActual } });
+    return moneyCell(deps, typed, { key, edit: { type: 'money', initial: amountInputText(typed), commit: commitActual } });
   }
   if (typed != null || deps.overriding.has(c.id)) {
     return moneyCell(deps, typed ?? ledgerSum, {
+      key,
       marker: 'override',
       menuButton: true,
       edit: { type: 'money', initial: amountInputText(typed ?? ledgerSum), commit: commitActual },
@@ -242,12 +283,16 @@ function actualCell(deps: SheetDeps, ym: YM, c: Category, typed: number | null, 
         label: 'Clear override',
         run: () => {
           deps.setOverriding(c.id, false);
-          if (typed != null) void actions.setBudget(ym, c.id, { actual: null });
+          if (typed != null) {
+            void actions.setBudget(ym, c.id, { actual: null });
+            undoable(deps, () => void actions.setBudget(ym, c.id, { actual: typed }));
+          }
         },
       }],
     });
   }
   return moneyCell(deps, ledgerSum, {
+    key,
     computed: true,
     hint: 'Sum of the ledger',
     menuButton: true,
@@ -255,9 +300,33 @@ function actualCell(deps: SheetDeps, ym: YM, c: Category, typed: number | null, 
   });
 }
 
+const TX_FIELDS = ['date', 'item', 'amount'] as const;
+type TxField = (typeof TX_FIELDS)[number];
+
+/** One pasted/typed ledger line → transaction fields; undefined when a field can't be read. */
+function parseTxFields(fields: string[], start: number, ym: YM): Partial<Transaction> | undefined {
+  const patch: Partial<Transaction> = {};
+  for (let k = 0; k < fields.length && start + k < TX_FIELDS.length; k++) {
+    const text = fields[k]!;
+    const field = TX_FIELDS[start + k]!;
+    if (field === 'date') {
+      const d = parseDateInput(text, ym);
+      if (d === undefined) return undefined;
+      if (d) patch.date = d;
+    } else if (field === 'item') {
+      if (text.trim()) patch.item = text.trim();
+    } else {
+      const v = parseMoney(text, true);
+      if (v === undefined) return undefined;
+      if (v != null) patch.amount = v;
+    }
+  }
+  return patch;
+}
+
 function ledgerBlock(deps: SheetDeps, rows: Cell[][], r0: number, c0: number, ym: YM, cat: Category, list: Transaction[]) {
   const { actions } = deps;
-  place(rows, r0, c0, { kind: 'title', text: cat.name, categoryId: cat.id, align: 'left', lead: true });
+  place(rows, r0, c0, { kind: 'title', text: cat.name, categoryId: cat.id, align: 'left', lead: true, key: `block:${cat.id}:title` });
   place(rows, r0, c0 + 1, { kind: 'title' });
   place(rows, r0, c0 + 2, { kind: 'title' });
   place(rows, r0 + 1, c0, head('Date', 'left'));
@@ -266,28 +335,43 @@ function ledgerBlock(deps: SheetDeps, rows: Cell[][], r0: number, c0: number, ym
 
   list.forEach((t, i) => {
     const r = r0 + 2 + i;
-    const save = (patch: Partial<Transaction>) => void actions.saveTransaction({ ...t, ...patch });
+    /** Merges into the latest copy of the row; undo restores exactly what was there before. */
+    const save = (patch: Partial<Transaction>) => {
+      const before = latest(deps, 'transactions', t);
+      void actions.saveTransaction({ ...before, ...patch });
+      undoable(deps, () => void actions.saveTransaction(before));
+    };
     const menu: CellMenuItem[] = [
       { label: 'Move to month…', run: () => deps.moveToMonth(t) },
       {
         label: 'Delete', warn: true,
         run: () => {
+          const restore = () => void actions.saveTransaction({ ...t, deleted: false });
           void actions.deleteTransaction(t).then((ok) => {
-            if (ok) deps.notify(`Deleted ${t.item || 'transaction'}`, () => void actions.saveTransaction({ ...t, deleted: false }));
+            if (ok) deps.notify(`Deleted ${t.item || 'transaction'}`, restore);
           });
+          undoable(deps, restore);
         },
       },
     ];
     place(rows, r, c0, {
-      kind: 'value', text: shortDate(t.date), align: 'left', menu,
-      edit: { type: 'date', initial: t.date ?? '', commit: (v) => { if ((v || null) !== t.date) save({ date: v || null }); return true; } },
+      kind: 'value', text: shortDate(t.date), align: 'left', menu, key: `tx:${t.id}:date`,
+      edit: {
+        type: 'date', initial: dateInputText(t.date, ym), placeholder: 'm/d',
+        commit: (text) => {
+          const v = parseDateInput(text, ym);
+          if (v === undefined) return false;
+          if (v !== t.date) save({ date: v });
+          return true;
+        },
+      },
     });
     place(rows, r, c0 + 1, {
-      kind: 'value', text: t.item, align: 'left', menu,
+      kind: 'value', text: t.item, align: 'left', menu, key: `tx:${t.id}:item`,
       edit: { type: 'text', initial: t.item, commit: (v) => { if (v.trim() !== t.item) save({ item: v.trim() }); return true; } },
     });
     place(rows, r, c0 + 2, moneyCell(deps, t.amount, {
-      tone: t.amount < 0 ? 'good' : undefined, menu, menuButton: true,
+      tone: t.amount < 0 ? 'good' : undefined, menu, menuButton: true, key: `tx:${t.id}:amount`,
       edit: {
         type: 'money', initial: amountInputText(t.amount),
         commit: (text) => {
@@ -300,32 +384,50 @@ function ledgerBlock(deps: SheetDeps, rows: Cell[][], r0: number, c0: number, ym
     }));
   });
 
-  // Add row: typing in any cell creates the transaction.
+  // Add row: typing in any cell creates the transaction; pasting several lines creates one per line.
   const r = r0 + 2 + list.length;
-  const create = (patch: Partial<Transaction>) =>
-    void actions.saveTransaction({
-      id: deps.newId(), year: ym.year, month: ym.month, category_id: cat.id, date: null, item: '', amount: 0, note: null, ...patch,
-    });
-  place(rows, r, c0, {
-    kind: 'value', align: 'left', ghost: true,
-    edit: { type: 'date', initial: '', commit: (v) => { if (v) create({ date: v }); return true; } },
+  const blank = (): Transaction => ({
+    id: deps.newId(), year: ym.year, month: ym.month, category_id: cat.id, date: null, item: '', amount: 0, note: null,
   });
-  place(rows, r, c0 + 1, {
-    kind: 'value', text: '+ Add', align: 'left', ghost: true,
-    edit: { type: 'text', initial: '', placeholder: `New ${cat.name} item`, commit: (v) => { if (v.trim()) create({ item: v.trim() }); return true; } },
+  const addKey = (f: TxField) => `add:${cat.id}:${f}`;
+  const create = (field: TxField, patch: Partial<Transaction>) => {
+    const t = { ...blank(), ...patch };
+    void actions.saveTransaction(t);
+    undoable(deps, () => void actions.deleteTransaction(t));
+    deps.onCreate?.(addKey(field), t.id);
+  };
+  const addRows = (start: number) => (lines: string[][]) => {
+    const made = lines
+      .map((fields) => parseTxFields(fields, start, ym))
+      .filter((p): p is Partial<Transaction> => !!p && (p.item != null || p.amount != null || p.date != null))
+      .map((p) => ({ ...blank(), ...p }));
+    made.forEach((t) => void actions.saveTransaction(t));
+    if (made.length) undoable(deps, () => made.forEach((t) => void actions.deleteTransaction(t)));
+    return made.length;
+  };
+  const addCell = (f: TxField, cell: Partial<Cell>, commit: (text: string) => boolean): Cell => ({
+    kind: 'value', ghost: true, key: addKey(f), addRows: addRows(TX_FIELDS.indexOf(f)), ...cell,
+    edit: { type: f === 'amount' ? 'money' : f === 'date' ? 'date' : 'text', initial: '', ...cell.edit, commit },
   });
-  place(rows, r, c0 + 2, {
-    kind: 'value', align: 'right', ghost: true,
-    edit: {
-      type: 'money', initial: '',
-      commit: (text) => {
-        const v = parseMoney(text, true);
-        if (v === undefined) return false;
-        if (v != null) create({ amount: v });
-        return true;
-      },
-    },
-  });
+  place(rows, r, c0, addCell('date', { align: 'left', edit: { type: 'date', initial: '', placeholder: 'm/d', commit: () => true } }, (text) => {
+    const v = parseDateInput(text, ym);
+    if (v === undefined) return false;
+    if (v) create('date', { date: v });
+    return true;
+  }));
+  place(rows, r, c0 + 1, addCell('item', {
+    text: '+ Add', align: 'left',
+    edit: { type: 'text', initial: '', placeholder: `New ${cat.name} item`, commit: () => true },
+  }, (v) => {
+    if (v.trim()) create('item', { item: v.trim() });
+    return true;
+  }));
+  place(rows, r, c0 + 2, addCell('amount', { align: 'right' }, (text) => {
+    const v = parseMoney(text, true);
+    if (v === undefined) return false;
+    if (v != null) create('amount', { amount: v });
+    return true;
+  }));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -402,17 +504,22 @@ export function buildSummaryGrid(deps: SheetDeps, summary: YearSummary, nw: NetW
   let r = 1;
   for (const v of nw.accounts) {
     const a = v.account;
-    place(rows, r, 5, { kind: 'label', text: a.name });
+    place(rows, r, 5, { kind: 'label', text: a.name, key: `acct:${a.id}:name` });
     place(rows, r, 6, a.linked_category_id
-      ? moneyCell(deps, v.balance, { computed: true, marker: 'auto', hint: `auto · base ${formatMoney(a.base_amount)} + contributions` })
+      ? moneyCell(deps, v.balance, { key: `acct:${a.id}:balance`, computed: true, marker: 'auto', hint: `auto · base ${formatMoney(a.base_amount)} + contributions` })
       : moneyCell(deps, v.balance, {
+        key: `acct:${a.id}:balance`,
         tone: v.balance < 0 ? 'bad' : undefined,
         edit: {
           type: 'money', initial: amountInputText(a.balance),
           commit: (text) => {
             const n = parseMoney(text, false);
             if (n === undefined) return false;
-            if (n !== a.balance) void actions.saveAccount({ ...a, balance: n ?? 0 });
+            if (n !== a.balance) {
+              const before = latest(deps, 'accounts', a);
+              void actions.saveAccount({ ...before, balance: n ?? 0 });
+              undoable(deps, () => void actions.saveAccount(before));
+            }
             return true;
           },
         },
@@ -432,43 +539,79 @@ export function buildSummaryGrid(deps: SheetDeps, summary: YearSummary, nw: NetW
   place(rows, 0, 9, head('Amount'));
   r = 1;
   for (const e of ledger.filter((x) => !x.settled)) {
+    const save = (patch: Partial<LedgerEntry>) => {
+      const before = latest(deps, 'ledger_entries', e);
+      void actions.saveLedgerEntry({ ...before, ...patch });
+      undoable(deps, () => void actions.saveLedgerEntry(before));
+    };
     const menu: CellMenuItem[] = [
-      { label: 'Settle', run: () => void actions.saveLedgerEntry({ ...e, settled: true }).then((ok) => ok && deps.notify(`${e.name} settled`, () => void actions.saveLedgerEntry({ ...e, settled: false }))) },
+      {
+        label: 'Settle',
+        run: () => {
+          const reopen = () => void actions.saveLedgerEntry({ ...e, settled: false });
+          void actions.saveLedgerEntry({ ...e, settled: true }).then((ok) => ok && deps.notify(`${e.name} settled`, reopen));
+          undoable(deps, reopen);
+        },
+      },
       {
         label: 'Delete', warn: true,
-        run: () => void actions.deleteLedgerEntry(e).then((ok) => ok && deps.notify(`Deleted ${e.name}`, () => void actions.saveLedgerEntry({ ...e, deleted: false }))),
+        run: () => {
+          const restore = () => void actions.saveLedgerEntry({ ...e, deleted: false });
+          void actions.deleteLedgerEntry(e).then((ok) => ok && deps.notify(`Deleted ${e.name}`, restore));
+          undoable(deps, restore);
+        },
       },
     ];
     place(rows, r, 8, {
-      kind: 'value', text: e.name, align: 'left', menu,
-      edit: { type: 'text', initial: e.name, commit: (v) => { if (v.trim() && v.trim() !== e.name) void actions.saveLedgerEntry({ ...e, name: v.trim() }); return true; } },
+      kind: 'value', text: e.name, align: 'left', menu, key: `iou:${e.id}:name`,
+      edit: { type: 'text', initial: e.name, commit: (v) => { if (v.trim() && v.trim() !== e.name) save({ name: v.trim() }); return true; } },
     });
     place(rows, r, 9, moneyCell(deps, e.amount, {
-      tone: e.amount > 0 ? 'good' : e.amount < 0 ? 'bad' : undefined, menu, menuButton: true,
+      tone: e.amount > 0 ? 'good' : e.amount < 0 ? 'bad' : undefined, menu, menuButton: true, key: `iou:${e.id}:amount`,
       edit: {
         type: 'money', initial: amountInputText(e.amount),
         commit: (text) => {
           const n = parseMoney(text, false);
           if (n === undefined) return false;
-          if (n !== e.amount) void actions.saveLedgerEntry({ ...e, amount: n ?? 0 });
+          if (n !== e.amount) save({ amount: n ?? 0 });
           return true;
         },
       },
     }));
     r++;
   }
+  const createEntry = (field: 'name' | 'amount', patch: Partial<LedgerEntry>) => {
+    const e = { ...actions.newLedgerEntry(), name: 'New entry', ...patch };
+    void actions.saveLedgerEntry(e);
+    undoable(deps, () => void actions.deleteLedgerEntry(e));
+    deps.onCreate?.(`add:iou:${field}`, e.id);
+  };
+  const addEntries = (start: number) => (lines: string[][]) => {
+    let made: LedgerEntry[] = [];
+    for (const fields of lines) {
+      const [name, amount] = start === 0 ? [fields[0] ?? '', fields[1] ?? ''] : ['', fields[0] ?? ''];
+      const n = parseMoney(amount, true);
+      if (n === undefined || (!name.trim() && n == null)) continue;
+      // newLedgerEntry orders after the stored entries: bump past the ones made in this paste.
+      const base = actions.newLedgerEntry();
+      made = [...made, { ...base, sort_order: base.sort_order + made.length, name: name.trim() || 'New entry', amount: n ?? 0 }];
+    }
+    made.forEach((e) => void actions.saveLedgerEntry(e));
+    if (made.length) undoable(deps, () => made.forEach((e) => void actions.deleteLedgerEntry(e)));
+    return made.length;
+  };
   place(rows, r, 8, {
-    kind: 'value', text: '+ Add', align: 'left', ghost: true,
-    edit: { type: 'text', initial: '', placeholder: 'Who / what', commit: (v) => { if (v.trim()) void actions.saveLedgerEntry({ ...actions.newLedgerEntry(), name: v.trim() }); return true; } },
+    kind: 'value', text: '+ Add', align: 'left', ghost: true, key: 'add:iou:name', addRows: addEntries(0),
+    edit: { type: 'text', initial: '', placeholder: 'Who / what', commit: (v) => { if (v.trim()) createEntry('name', { name: v.trim() }); return true; } },
   });
   place(rows, r, 9, {
-    kind: 'value', align: 'right', ghost: true,
+    kind: 'value', align: 'right', ghost: true, key: 'add:iou:amount', addRows: addEntries(1),
     edit: {
       type: 'money', initial: '',
       commit: (text) => {
         const n = parseMoney(text, true);
         if (n === undefined) return false;
-        if (n != null) void actions.saveLedgerEntry({ ...actions.newLedgerEntry(), name: 'New entry', amount: n });
+        if (n != null) createEntry('amount', { amount: n });
         return true;
       },
     },

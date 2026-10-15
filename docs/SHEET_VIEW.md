@@ -31,9 +31,13 @@ the rest of the app, so they sync like any other change.
   tabular + lining numerals, money right-aligned, cell padding 6×10, row height 36. Block titles
   (e.g. "Paychecks", "Food") are 15/600 ink on the block's top row, with the category's palette symbol.
 - **Editable cells** (where the sheet had typed values): normal ink on `bg`, hover `surface`
-  (web, `@media(hover:hover)`), focus ring 2px `focusRing`, tap/click to edit in place
-  (numeric keyboard for money/date pickers for dates), Enter/Tab commits and moves down/right,
-  Escape cancels. **Computed cells** (the sheet's formulas): `surface` fill, ink-2 text, not editable,
+  (web, `@media(hover:hover)`), focus ring 2px `focusRing`. Web: click selects, a second click /
+  double-click / Enter / typing edits in place (one tap on touch; the "+ Add" row edits on the first
+  click). Dates are typed ("10/3", "Oct 3", "3" = day of the budget month, "t" = today; the year
+  nearest the budget month is assumed). Enter/Tab commits and moves down/right, Escape cancels,
+  clicking away with unreadable input drops it with a toast. Ledger Item / Amount columns widen to fit
+  their longest entry (Item up to 280px). The grid scrolls inside a box that fits the window, so its
+  horizontal scrollbar stays on screen, and a selected cell is never left under the pinned B–E columns. **Computed cells** (the sheet's formulas): `surface` fill, ink-2 text, not editable,
   with a tiny ƒ hint on hover/long-press ("Calculated").
 - Difference cells coloured per DOMAIN_RULES §8 (good/bad, zero ink-3). Totals rows weight 600 with a
   2px top rule in `line2`.
@@ -120,5 +124,10 @@ Spacer columns F and I between the blocks, like the sheet.
 - Same data, same rules, same sync: an edit here appears instantly on the other screens and devices.
 - Keyboard (web and hardware keyboards on Android): arrow keys move the selected cell; Enter edits /
   commits; Tab/Shift-Tab move right/left; typing a character on a selected editable cell starts editing.
+  Web also: Ctrl/Cmd+arrows and Home/End jump to the edge, PageUp/PageDown move 10 rows, Delete /
+  Backspace clears a cell, Ctrl/Cmd+Z undoes the sheet's last change (a paste is one step), Ctrl/Cmd+C
+  copies a cell and Ctrl/Cmd+V pastes a tab/line separated block (into an add row: one new row per
+  line). Typing into an add row then Tab continues on the row it created; Enter stays on the add row.
+  The selection follows its cell when rows are added, removed or re-sorted.
 - No formulas are user-editable; the app's calculations are the formulas.
 - Light and dark themes per tokens.
